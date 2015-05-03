@@ -1,3 +1,3 @@
-AEM Ansible roles.
+AEM Ansible modules and roles.
 
 Documentation for each role to be added soon...
