@@ -1,0 +1,5 @@
+---
+- name: Install Java package
+  sudo: true
+  yum: name="{{java_pkg}}" state=present disable_gpg_check=true
+  tags: java

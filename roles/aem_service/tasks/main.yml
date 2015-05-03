@@ -1,0 +1,12 @@
+---
+- name: Ensure service is {{state}}
+  sudo: true
+  aemservice: state={{state}}
+              uri='{{service_uri}}'
+              pattern='{{service_pattern}}'
+              host={{inventory_hostname}}
+              port={{port}}
+              admin_user={{admin_user}}
+              admin_password={{admin_password}}
+              authenticate={{service_authenticate}}
+  tags: aem_service

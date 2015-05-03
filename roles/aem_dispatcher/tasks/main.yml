@@ -1,0 +1,28 @@
+---
+- name: Install mod_dispatcher package
+  sudo: true
+  yum: name="{{dispatcher_pkg}}" state=present disable_gpg_check=true
+  tags: aem_dispatcher
+  notify:
+    - restart apache
+
+- name: Configure /etc/httpd/conf.d/dispatcher.load
+  sudo: true
+  template: src=dispatcher.load dest=/etc/httpd/conf.d/dispatcher.load owner=root group=root mode=0644
+  tags: aem_dispatcher
+  notify:
+    - restart apache
+
+- name: Configure /etc/httpd/conf.d/dispatcher.conf
+  sudo: true
+  template: src=dispatcher.conf dest=/etc/httpd/conf.d/dispatcher.conf owner=root group=root mode=0644
+  tags: aem_dispatcher
+  notify:
+    - restart apache
+
+- name: Configure /etc/httpd/conf/dispatcher.any
+  sudo: true
+  template: dest=/etc/httpd/conf/dispatcher.any src=dispatcher.any owner=root group=root mode=0644
+  tags: aem_dispatcher
+  notify:
+    - restart apache

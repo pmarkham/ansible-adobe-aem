@@ -1,0 +1,117 @@
+#!/bin/bash
+
+# Run Ansible playbook.
+# 
+# Any valid ansible-playbook options may be specified.
+#
+# If no option are specified, site.yml is run, with a default host limit as
+# defined in the inventory. If any options as specified, they must also include
+# the playbook name and are passed to ansible-playbook unchanged.
+
+# Usage:
+#    ~/ansible/tme/dev1
+#    ~/ansible/tme/dev1 restart.yml
+#    ~/ansible/tme/dev1 --limit all restart.yml
+#    ~/ansible/tme/dev1 shared/blah.yml
+
+# Find base directory for this environment
+dirname=`dirname $0`
+if [ "$dirname" == "." ]; then
+    dirname=''
+fi
+
+if [ `echo $dirname | grep '^/'` ]; then
+    dir="$dirname"
+else
+    pwd=`pwd`
+    dir="$pwd/$dirname"
+fi
+
+cd "$dir/../.."
+base_dir=`pwd`
+
+# Configure roles directory
+roles_dir=""
+if [ -d "$base_dir/roles/site" ]; then
+    roles_dir="$roles_dir:$base_dir/roles/site"
+fi
+if [ -d "$base_dir/roles/shared" ]; then
+    roles_dir="$roles_dir:$base_dir/roles/shared"
+fi
+
+# Configure module directory
+library_dir="/usr/share/ansible"
+if [ -d "$base_dir/library/site" ]; then
+    library_dir="$library_dir:$base_dir/library/site/"
+fi
+if [ -d "$base_dir/library/shared" ]; then
+    library_dir="$library_dir:$base_dir/library/shared/"
+fi
+
+# Set up Ansible environment variable
+export ANSIBLE_HOST_KEY_CHECKING="False"
+export ANSIBLE_HOSTS="$base_dir/inventory/hosts"
+export ANSIBLE_HOSTS_LOCAL="$base_dir/inventory/hosts_local"
+export ANSIBLE_ROLES_PATH="$roles_dir"
+export ANSIBLE_LIBRARY="$library_dir"
+
+# Figure out the platform and environment
+tmp_file="/tmp/ansible_run.$$.$RANDOM"
+trap "rm $tmp_file 2>/dev/null" 0
+
+ansible -i $ANSIBLE_HOSTS_LOCAL -c local -m copy  -a "dest=$tmp_file content='{{node_platform}}|{{node_stream}}'" localhost > /dev/null
+if [ $? -ne 0 ]; then
+    echo "Error running Ansible to get platform and environment" >&2
+    exit 1
+fi
+platform=`cat $tmp_file | cut -f1 -d'|'`
+environment=`cat $tmp_file | cut -f2 -d'|'`
+
+vault_file="$HOME/.ansible_password/${platform}_${environment}_vault"
+if [ ! -f "$vault_file" ]; then
+    echo "Can't find Ansible vault file '$vault_file'" >&2
+    exit 1
+fi
+# Make sure permissions are correct on vault file
+chmod 600 $vault_file
+
+
+# Make playbook filename relative to 'playbook' directory
+
+cd playbooks
+
+# Check command line arguments:
+
+# - If the limit option has been specified, don't used the default limit.
+# - If a yml file has been specified, assume it's the playbook name 
+#   and don't use the default
+
+default_limit="--limit default-limit-`hostname -f`"
+playbook="site/site.yml"
+ansible_args=""
+for arg in $*
+    do
+    case $arg in
+        -l* | --limit*)
+            default_limit=""
+            ;;
+        *.yml)
+            if [ -f "$arg" ]; then
+                playbook="$arg"
+            elif [ -f "site/$arg" ]; then
+                playbook="site/$arg"
+            elif [ -f "shared/$arg" ]; then
+                playbook="shared/$arg"
+            else
+                echo "Can't find playbook '$arg'" >&2
+                exit 1
+            fi
+            arg=""
+            ;;
+    esac
+    ansible_args="$ansible_args $arg"
+    done
+
+# Change to playbooks directory to make it easier to specify a playbook name
+# using a relative path e.g. site/restart.yml
+ansible-playbook --vault-password-file=$vault_file $default_limit $ansible_args $playbook

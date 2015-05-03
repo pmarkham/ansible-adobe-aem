@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?><Workspace name="crx.default" simpleLocking="true">
+        <!--
+        virtual file system of the workspace:
+        class: FQN of class implementing FileSystem interface
+        -->
+        <FileSystem class="org.apache.jackrabbit.core.fs.local.LocalFileSystem">
+            <param name="path" value="${wsp.home}"/>
+        </FileSystem>
+
+        <!--
+        persistence manager of the workspace:
+        class: FQN of class implementing PersistenceManager interface
+        -->
+{% for index in aem_workspace.persistence_manager %}
+        <PersistenceManager class="{{index.class}}">
+{% for param in index.params %}
+            <param name="{{param.name}}" value="{{param.value}}"/>
+{% endfor %}
+        </PersistenceManager>
+
+{% endfor %}
+        <!--
+        Search index and the file system it uses.
+        -->
+{% for index in aem_workspace.search_indexes %}
+        <SearchIndex class="{{index.class}}">
+{% for param in index.params %}
+            <param name="{{param.name}}" value="{{param.value}}"/>
+{% endfor %}
+        </SearchIndex>
+
+{% endfor %}
+        <!--
+        Workspace security configuration
+        -->
+        <WorkspaceSecurity>
+            <AccessControlProvider class="org.apache.jackrabbit.core.security.authorization.acl.ACLProvider">
+                <param name="omit-default-permission" value="true"/>
+            </AccessControlProvider>
+        </WorkspaceSecurity>
+
+        <!--
+        XML Import configuration of the workspace
+        -->
+        <Import>
+            <ProtectedItemImporter class="org.apache.jackrabbit.core.xml.AccessControlImporter"/>
+            <ProtectedItemImporter class="org.apache.jackrabbit.core.security.user.UserImporter">
+                <param name="importBehavior" value="besteffort"/>
+            </ProtectedItemImporter>
+        </Import>
+    </Workspace>

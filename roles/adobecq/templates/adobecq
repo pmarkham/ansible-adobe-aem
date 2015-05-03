@@ -1,0 +1,28 @@
+{# Set the run mode based on the value in node_tier. Note, however, that node_tier #}
+{# contains the value 'publisher' rather than 'publish' so we need to handle that. #}
+{%- if node_tier == 'author' %}
+   {%- set tier = node_tier %}
+{%- else %}
+   {%- set tier = 'publish' %}
+{%- endif %}
+{# Drop domain name from hostname #}
+{%- set hostname = inventory_hostname.split('.')[0] %}
+{# Add a comma if any instance specific run modes have been specified #}
+{%- if run_modes != "" %}
+    {%- set run_modes = "," + run_modes %}
+{%- endif %}
+{# Figure out how much memory to give the instance #}
+{%- if ansible_memtotal_mb > 10000 %}
+    {%- set java_mem = 8192 %}
+{%- elif ansible_memtotal_mb > 7000 %}
+    {%- set java_mem = 6144 %}
+{%- else %}
+    {%- set java_mem = 1024 %}
+{%- endif %}
+# Default Java memory size based on a memory size of {{ansible_memtotal_mb}}MB
+JAVA_MEM="{{java_mem}}"
+CQ_RUNMODE="{{tier}},nosamplecontent,{{node_environment}},{{hostname}}{{node_datacentre}}{{run_modes}}"
+CQ_PORT="{{port}}"
+CQ_JVM_OPTS="{{java_options}}"
+CQ_FILE_SIZE_LIMIT=""
+JAVA_HOME="{{java_home}}"

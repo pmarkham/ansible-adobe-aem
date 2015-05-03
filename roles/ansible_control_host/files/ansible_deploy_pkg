@@ -1,0 +1,84 @@
+#!/bin/bash
+
+# Deploy Ansible AEM configuration
+#
+# Parameters:
+#    directory    - location of tar file to install
+#    platform     - tme, tcom, skynews, nrlclubs, etc
+#    environment  - dev1, uat1, etc
+
+export PATH=/usr/bin:/bin
+
+umask 077
+
+if [ $# -ne 3 ]; then
+    echo "Usage: ansible_deploy deploy_from_directory platform environment" >&2
+    exit 1
+fi
+
+dir=$1
+platform=$2
+env=$3
+
+cd $HOME
+
+# Verify directory exists
+if [ ! -d "$dir" ]; then
+    echo "deploy failed: directory '$dir' not found" >&2
+    exit 1
+fi
+
+# Verify that only one tar.gz file exists
+cd $dir
+count=`find * -prune -ls | egrep -v 'deploy_password|*.tar.gz$' | wc -l`
+if [ $count -ne 0 ]; then
+    echo "deploy failed: wrong number of files in `pwd`" >&2
+    exit 1
+fi
+
+# Make sure we always clean up
+trap "echo 'Cleaning up'; cd $HOME; rm -rf $dir 2>/dev/null" 0
+
+# Extract tar file and validate contents
+echo "Extracing tar file"
+tar xfz *.tar.gz
+if [ $? -ne 0 ]; then
+    echo "deploy failed: can't extract tar file" >&2
+    exit 1
+fi
+
+# Verify that it's for this platform
+echo "Verifying platform"
+if [ ! -d $platform ]; then
+    echo "deploy failed: tar file not valid for this platform" >&2
+    exit 1
+fi
+
+# Verify that it's for this environment`
+echo "Verifying environment"
+cd $platform
+if [ ! -d $env ]; then
+    echo "deploy failed: tar file not valid for this environment" >&2
+    exit 1
+fi
+
+# Syntax check the site.yml
+cd $env/bin/shared
+echo "Syntax checking site.yml"
+./run -c local --syntax-check --limit all site/site.yml
+if [ $? -ne 0 ]; then
+    echo "deploy failed: ansible syntax check failed" >&2
+    exit 1
+fi
+echo "Syntax check successful"
+
+echo "Deploying to $HOME/ansible/$platform/$env"
+rm -rf $HOME/ansible/$platform/$env 2>/dev/null
+mkdir -p $HOME/ansible/$platform
+mv $HOME/$dir/$platform/$env $HOME/ansible/$platform
+echo "Deploy sucessful"
+
+build_num=`grep '^BAMBOO_BUILDNUM' $HOME/ansible/$platform/$env/bamboo-build.txt |cut -f2 -d=`
+logger -p daemon.info "Deployed Ansible configuration, build $build_num, to $HOME/ansible/$platform/$env"
+
+exit 0

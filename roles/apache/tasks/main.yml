@@ -1,0 +1,106 @@
+---
+- name: Install Apache package
+  sudo: true
+  yum: name="{{apache_pkg}}" state=present disable_gpg_check=true
+  tags: apache
+
+- name: Configure /etc/httpd/conf/httpd.conf
+  sudo: true
+  template: src=httpd.conf dest=/etc/httpd/conf/httpd.conf owner=root group=root mode=0644
+  tags: apache
+  notify:
+    - restart apache
+
+- name: Configure /etc/httpd/conf.d files
+  sudo: true
+  template: src={{item}} dest=/etc/httpd/conf.d/{{item}} owner=root group=root mode=0644
+  tags: apache
+  notify:
+    - restart apache
+  with_items:
+    - actions.load
+    - alias.conf
+    - alias.load
+    - auth_basic.load
+    - auth_digest.load
+    - authn_alias.load
+    - authn_anon.load
+    - authn_dbm.load
+    - authn_default.load
+    - authn_file.load
+    - authz_dbm.load
+    - authz_default.load
+    - authz_groupfile.load
+    - authz_host.load
+    - authz_owner.load
+    - authz_user.load
+    - autoindex.conf
+    - autoindex.load
+    - cache.load
+    - cgi.load
+    - dav.load
+    - dav_fs.conf
+    - dav_fs.load
+    - deflate.conf
+    - deflate.load
+    - dir.conf
+    - dir.load
+    - env.load
+    - expires.load
+    - ext_filter.load
+    - include.load
+    - log_config.load
+    - logio.load
+    - mime.conf
+    - mime.load
+    - mime_magic.conf
+    - mime_magic.load
+    - negotiation.conf
+    - negotiation.load
+    - prefork.conf
+    - rewrite.load
+    - setenvif.conf
+    - setenvif.load
+    - speling.load
+    - status.conf
+    - status.load
+    - substitute.load
+    - suexec.load
+    - usertrack.load
+    - version.load
+    - vhost_alias.load
+
+- name: Delete /etc/httpd/conf.d/README
+  sudo: true
+  file: dest=/etc/httpd/conf.d/README state=absent
+  tags: apache
+  notify:
+    - restart apache
+
+- name: Delete /etc/httpd/conf.d/welcome.conf
+  sudo: true
+  file: dest=/etc/httpd/conf.d/welcome.conf state=absent
+  tags: apache
+  notify:
+    - restart apache
+
+- name: Configure Virtual host
+  sudo: true
+  template: dest=/etc/httpd/conf.d/{{item.conf_file_sequence}}-{{item.name}}.conf src=vhost_dispatcher owner=root group=root mode=0644
+  with_items: virtual_hosts
+  tags: apache
+  notify:
+    - restart apache
+
+- name: Create document root
+  sudo: true
+  file: dest={{item.document_root}} state=directory owner=apache group=apache mode=0755
+  with_items: virtual_hosts
+  tags: apache
+  notify:
+    - restart apache
+
+- name: Start Apache
+  sudo: true
+  service: name=httpd state=started enabled=yes
+  tags: apache

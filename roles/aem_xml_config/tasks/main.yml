@@ -1,0 +1,36 @@
+---
+- name: Create repository directory
+  sudo: true
+  sudo_user: prodapps
+  file: dest=/opt/adobecq/crx-quickstart/repository state=directory mode=0755
+  tags: aem_xml_config
+
+- name: Create repository.xml
+  sudo: true
+  sudo_user: prodapps
+  template: dest=/opt/adobecq/crx-quickstart/repository/repository.xml src=repository.xml owner=prodapps group=prodapps mode=0644
+  tags: aem_xml_config
+
+- name: Create workspaces directory
+  sudo: true
+  sudo_user: prodapps
+  file: dest=/opt/adobecq/crx-quickstart/repository/workspaces/crx.default state=directory mode=0755
+  tags: aem_xml_config
+
+- name: Create workspace.xml
+  sudo: true
+  sudo_user: prodapps
+  template: dest=/opt/adobecq/crx-quickstart/repository/workspaces/crx.default/workspace.xml src=workspace.xml owner=prodapps group=prodapps mode=0644
+  tags: aem_xml_config
+
+- name: Create index directory
+  sudo: true
+  sudo_user: prodapps
+  file: dest=/opt/adobecq/crx-quickstart/repository/workspaces/crx.default/index state=directory mode=0755
+  tags: aem_xml_config
+
+- name: Create indexing_config.xml
+  sudo: true
+  sudo_user: prodapps
+  template: dest=/opt/adobecq/crx-quickstart/repository/workspaces/crx.default/index/indexing_config.xml src=indexing_config.xml owner=prodapps group=prodapps mode=0644
+  tags: aem_xml_config

@@ -1,0 +1,108 @@
+#!/bin/bash
+
+# This script validates the commands being issued via ssh to this account to ensure
+# that only command necessary to deploy AEM Ansible configurations are used. This is
+# to prevent anyone abusing the ssh trust from the Bamboo build servers.
+#
+# It is specified in the ~/.ssh/authorized_keys files as a forced command.
+#
+# For example:
+#    command="bin/ansible_shell" ssh-rsa AAAAB3N...
+
+umask 077
+
+read -a args <<< "$SSH_ORIGINAL_COMMAND"
+
+count=${#args[@]}
+cmd=${args[0]}
+case $cmd in
+    mkdir)
+        dir=${args[1]}
+        if [ $count -ne 2 ]; then
+            echo "mkdir: invalid command: wrong number of parameters" >&2
+	    exit 1
+        fi
+        echo "$dir" | grep '^tmp/[A-Za-z0-9][A-Za-z0-9]*$' >/dev/null 2>&1
+	if [ $? -ne 0 ]; then
+            echo "mkdir: cannot create directory \`$dir': Permission denied" >&2
+	    exit 1
+        fi
+        ;;
+    scp) 
+        opt=${args[1]}
+        dir=${args[2]}
+        if [ $count -ne 3 ]; then
+            echo "scp: invalid command: wrong number of parameters" >&2
+	    exit 1
+        fi
+	if [ $opt != '-t' ]; then
+            echo "scp: invalid command: invalid options" >&2
+	    exit 1
+        fi
+        echo "$dir" | egrep '^tmp/[A-Za-z0-9]+$|^sysconfig/[A-Za-z0-9]+/[A-Za-z0-9]+$' >/dev/null 2>&1
+	if [ $? -ne 0 ]; then
+	    # allow copies to 1 dir under tmp or 2 dirs under sysconfig - from the home directory
+            echo "scp: cannot create directory \`$dir': Permission denied" >&2
+	    exit 1
+        fi
+        if [ ! -d $dir ]; then
+	    echo "scp: cannot stat \`$dir': No such file or directory" >&2
+	    exit 1
+        fi
+        ;;
+    ansible/bin/ansible_deploy_pkg)
+        if [ $count -ne 4 ]; then
+            echo "$cmd: invalid command: wrong number of parameters" >&2
+	    exit 1
+        fi
+        if [ ! -x $cmd ]; then
+            echo "$cmd: cannot execute: No such file or directory" >&2
+	    exit 1
+        fi
+        ;;
+    ansible/*/*/run)
+        if [ $count -ne 1 ]; then
+            echo "$cmd: invalid command: wrong number of parameters" >&2
+	    exit 1
+        fi
+        echo "$cmd" | grep '^ansible/[A-Za-z0-9][A-Za-z0-9]*/[A-Za-z0-9][A-Za-z0-9]*/run$' >/dev/null 2>&1
+	if [ $? -ne 0 ]; then
+	    echo "$cmd: invalid command" >&2
+	    exit 1
+        fi
+        if [ ! -x $cmd ]; then
+            echo "$cmd: cannot execute: No such file or directory" >&2
+            exit 1
+        fi
+        ;;
+    sysconfig-clean)
+        platform=${args[1]}
+        env=${args[2]}
+	if [ $count -ne 3 ]; then
+	    echo "$cmd: invalid command: wrong number of parameters" >&2
+	    exit 1
+	fi
+        echo "$platform" | egrep 'tme|sky|nrl' >/dev/null 2>&1
+	if [ $? -ne 0 ]; then
+	    echo "sysconfig-clean: platform must be tme or nrl or sky" >&2
+	    exit 1
+        fi
+        echo "$env" | egrep 'dev|uat|prod' >/dev/null 2>&1
+	if [ $? -ne 0 ]; then
+	    echo "sysconfig-clean: env must have dev or uat or prod in it" >&2
+	    exit 1
+        fi
+
+        mkdir -p sysconfig/${platform}/${env}
+        cd       sysconfig/${platform}
+        rm -rf ${env}
+        mkdir ${env}
+        
+        exit
+        ;;
+    *)
+        echo "$cmd: cannot execute: No such file or directory"
+	exit 1
+esac
+
+exec $SSH_ORIGINAL_COMMAND

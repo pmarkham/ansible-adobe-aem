@@ -1,0 +1,15 @@
+---
+- name: Find sling.id.file
+  sudo: true
+  sudo_user: prodapps
+  command: /bin/find /opt/adobecq/crx-quickstart/launchpad/felix -name sling.id.file
+  always_run: true
+  changed_when: false
+  register: sling_id_file
+  tags: aem_sling_id
+
+- name: Update sling.id.file
+  sudo: true
+  sudo_user: prodapps
+  copy: dest="{{sling_id_file.stdout}}" content="{{sling_id}}"
+  tags: aem_sling_id

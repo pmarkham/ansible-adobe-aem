@@ -1,0 +1,106 @@
+---
+- stat: path=/opt/adobecq/crx-quickstart/install/org.apache.jackrabbit.oak.plugins.segment.SegmentNodeStoreService.config
+  always_run: true
+  register: standby_file
+  tags: aem_author_slave
+
+- name: Shutdown standby author if admin password changed
+  sudo: true
+  aemservice: state=stopped
+              host={{inventory_hostname}}
+              port={{port}}
+  when: standby_file.stat.exists and aem_osgi_password_changed is defined and aem_osgi_password_changed == 'True'
+  tags: aem_author_slave
+
+- name: start (to be standby) author to install hotfixes
+  sudo: true
+  aemservice: state=started
+              uri='{{service_uri_stand_alone}}'
+              pattern='{{service_pattern_stand_alone}}'
+              host={{inventory_hostname}}
+              port={{port}}
+  when: not standby_file.stat.exists
+  tags: aem_author_slave
+
+- name: Change (to be standby) author admin password
+  aempassword:
+    old_password={{admin_password_old}}
+    new_password={{admin_password}}
+    id=admin host={{inventory_hostname}}
+    port={{port}}
+    admin_user={{admin_user}}
+    admin_password={{admin_password_old}}
+    ignore_err=true
+  when: not standby_file.stat.exists
+  tags: aem_author_slave
+
+- name: Upload common packages (to be standby)
+  aempkg:
+     name='{{item.name}}'
+     state=uploaded
+     admin_user='{{admin_user}}'
+     admin_password='{{admin_password}}'
+     host='{{inventory_hostname}}'
+     port='{{port}}'
+     path='{{packages_repo}}/{{item.file | default()}}'
+  with_items: packages_common
+  when: not standby_file.stat.exists
+  tags: aem_author_slave
+
+- name: Install common packages (to be standby)
+  aempkg:
+     name='{{item.name}}'
+     state=present
+     admin_user='{{admin_user}}'
+     admin_password='{{admin_password}}'
+     host='{{inventory_hostname}}'
+     port='{{port}}'
+     path='{{packages_repo}}/{{item.file | default()}}'
+     wait=30
+  with_items: packages_common
+  when: not standby_file.stat.exists
+  tags: aem_author_slave
+
+- name: stop (to be standby) author 
+  sudo: true
+  aemservice: state=stopped
+              host={{inventory_hostname}}
+              port={{port}}
+  when: not standby_file.stat.exists
+  tags: aem_author_slave
+
+- name: Create (to be standby) author install directory
+  sudo: true
+  sudo_user: prodapps
+  file: dest=/opt/adobecq/crx-quickstart/install state=directory mode=0755
+  tags: aem_author_slave
+
+
+- name: Create org.apache.jackrabbit.oak.plugins.segment.SegmentNodeStoreService.config
+  sudo: true
+  sudo_user: prodapps
+  template: dest=/opt/adobecq/crx-quickstart/install/org.apache.jackrabbit.oak.plugins.segment.SegmentNodeStoreService.config
+      src=org.apache.jackrabbit.oak.plugins.segment.SegmentNodeStoreService.config
+      mode=0644
+  tags: aem_author_slave
+
+
+- name: Create org.apache.jackrabbit.oak.plugins.segment.standby.store.StandbyStoreService.config
+  sudo: true
+  sudo_user: prodapps
+  template: dest=/opt/adobecq/crx-quickstart/install/org.apache.jackrabbit.oak.plugins.segment.standby.store.StandbyStoreService.config
+      src=org.apache.jackrabbit.oak.plugins.segment.standby.store.StandbyStoreService.config
+      mode=0644
+  tags: aem_author_slave
+
+- name: start author in standby
+  sudo: true
+  aemservice: state=started
+              uri='/system/console/bundles'
+              pattern='<title>Adobe Experience Manager Web Console - Bundles</title>'
+              host={{inventory_hostname}}
+              admin_user="{{admin_user}}"
+              admin_password="{{admin_password}}"
+              authenticate=true
+              port={{port}}
+  tags: aem_author_slave

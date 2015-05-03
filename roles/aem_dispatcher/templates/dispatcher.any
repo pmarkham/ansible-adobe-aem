@@ -1,0 +1,194 @@
+# Each farm configures a set of load balanced renders (i.e. remote servers)
+/farms
+  {
+
+  {% for item in virtual_hosts %}
+  /website 
+    {  
+    # Request headers that should be forwarded to the remote server.
+    /clientheaders
+      {
+      # Forward all request headers that are end-to-end. If you want
+      # to forward a specific set of headers, you'll have to list
+      # them here.
+      "*"
+      }
+      
+    # Hostname globbing for farm selection (virtual domain addressing)
+    /virtualhosts
+      {
+      # Entries will be compared against the "Host" request header
+      # and an optional request URL prefix.
+      #
+      # Examples:
+      #
+      #   www.company.com
+      #   intranet.*
+      #   myhost:8888/mysite
+      "*"
+      }
+      
+    # The load will be balanced among these render instances
+    /renders
+      {
+      /rend01
+        {
+        # Hostname or IP of the render
+        /hostname "{{aem_backend_host}}"
+        # Port of the render
+        /port "{{aem_backend_port}}"
+        # Connect timeout in milliseconds, 0 to wait indefinitely
+        # /timeout "0"
+        }
+      }
+      
+    # The filter section defines the requests that should be handled by the dispatcher.
+    # The globs will be compared against the request line, e.g. "GET /index.html HTTP/1.1".
+    /filter
+      {
+      # --- Custom filers start
+
+{%- for filter in item.dispatcher_custom_filters %}
+
+      # {{filter.comment}}
+      /{{filter.sequence}}
+        {
+{% if filter.glob is defined %}
+        /glob "{{filter.glob}}"
+{% endif %}
+{% if filter.url is defined %}
+        /url "{{filter.url}}"
+{% endif %}
+        /type "{{filter.type}}"
+        }
+{%- endfor %}
+
+      # --- Custom filers end
+      }
+        
+
+    # The cache section regulates what responses will be cached and where.
+    /cache
+      {
+      # The docroot must be equal to the document root of the webserver. The
+      # dispatcher will store files relative to this directory and subsequent
+      # requests may be "declined" by the dispatcher, allowing the webserver
+      # to deliver them just like static files.
+      /docroot "{{item.document_root}}"
+
+      # Sets the level upto which files named ".stat" will be created in the 
+      # document root of the webserver. When an activation request for some 
+      # page is received, only files within the same subtree are affected 
+      # by the invalidation.
+      /statfileslevel "{{item.dispatcher_statsfile_level}}"
+      
+      # Flag indicating whether to cache responses to requests that contain
+      # authorization information.
+{% if item.allow_authorized is defined %}
+      /allowAuthorized "{{item.allow_authorized}}"
+{% endif %}
+      
+      # Flag indicating whether the dispatcher should serve stale content if
+      # no remote server is available.
+      #/serveStaleOnError "0"
+      
+      # the rules define, which pages should be cached. please note that
+      # - only GET requests are cached
+      # - only requests with an extension are cached
+      # - only requests without query parameters ( ? ) are cached
+      # - only unauthorized pages are cached unless allowUnauthorized is set to 1
+      /rules
+        {
+      # --- Custom rules start
+
+{%- for rule in item.dispatcher_custom_rules %}
+
+          # {{rule.comment}}
+          /{{rule.sequence}}
+            {
+            /glob "{{rule.glob}}"
+            /type "{{rule.type}}"
+            }
+{%- endfor %}
+
+      # --- Custom rules end
+
+        }
+        
+      # The invalidate section defines the pages that are "invalidated" after
+      # any activation. Please note that the activated page itself and all 
+      # related documents are flushed on an modification. For example: if the 
+      # page /foo/bar is activated, all /foo/bar.* files are removed from the
+      # cache.
+      /invalidate
+        {
+        /0000
+          {
+          /glob "*"
+          /type "allow"
+          }
+        }
+
+      # The allowedClients section restricts the client IP addresses that are
+      # allowed to issue activation requests.
+      /allowedClients
+        {
+        # Uncomment the following to restrict activation requests to originate
+        # from "localhost" only.
+        #
+        #/0000
+        #  {
+        #  /glob "*"
+        #  /type "deny"
+        #  }
+        #/0001
+        #  {
+        #  /glob "127.0.0.1"
+        #  /type "allow"
+        #  }
+        }
+        
+      # The ignoreUrlParams section contains query string parameter names that
+      # should be ignored when determining whether some request's output can be
+      # cached or delivered from cache.
+      #
+      # In this example configuration, the "q" parameter will be ignored. 
+      /ignoreUrlParams
+        {
+        # --- Custom ignoreurl start
+
+{%- for ignoreurl in item.dispatcher_ignore_url %}
+
+          /{{ignoreurl.sequence}}
+            {
+            /glob "{{ignoreurl.glob}}"
+            /type "{{ignoreurl.type}}"
+            }
+{%- endfor %}
+
+        # --- Custom ignoreurl start
+
+        }
+      
+      }
+      
+    # The statistics sections dictates how the load should be balanced among the
+    # renders according to the media-type. 
+    /statistics
+      {
+      /categories
+        {
+        /html
+          {
+          /glob "*.html"
+          }
+        /others
+          {
+          /glob "*"
+          }
+        }
+      }
+    }
+  {% endfor %}
+
+  }

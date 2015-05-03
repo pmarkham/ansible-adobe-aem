@@ -1,0 +1,21 @@
+---
+- name: Install Dynatrace Web agent package
+  sudo: true
+  yum: name={{dynatrace_web_agent_pkg}} state=present disable_gpg_check=true
+  tags: dyntrace_web
+  notify:
+     - restart apache
+
+- name: Configure Dynatrace web agent
+  sudo: true
+  template: src=dtwsagent.ini dest={{dynatrac_web_agent_path}}/agent/conf/dtwsagent.ini
+  tags: dyntrace_web
+  notify:
+     - restart apache
+
+- name: Configure /etc/httpd/conf.d/dynatrace.load
+  sudo: true
+  template: src=dynatrace.load dest=/etc/httpd/conf.d/dynatrace.load owner=root group=root mode=0644
+  tags: dyntrace_web
+  notify:
+    - restart apache

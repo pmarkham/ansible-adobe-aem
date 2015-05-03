@@ -1,0 +1,19 @@
+# Change admin password
+---
+- name: Change admin password
+  aempassword:
+    old_password={{admin_password_old}}
+    new_password={{admin_password}}
+    id=admin host={{inventory_hostname}}
+    port={{port}}
+    admin_user={{admin_user}}
+    admin_password={{admin_password_old}}
+    ignore_err=true
+  register: aem_password
+  tags: aem_admin_password
+
+# Change felix password only if admin password changed
+- name: change felix password
+  command: echo "user = $admin_user:$admin_password_old" | /usr/bin/curl -K - -s -X POST "http://{{inventory_hostname}}:{{port}}/system/console/configMgr/org.apache.felix.webconsole.internal.servlet.OsgiManager?apply=true&action=ajaxConfigManager&manager.root=/system/console&http.service.filter=&default.render=bundles&realm=OSGi+Management+Console&username=admin&password={{admin_password}}&category=Main&locale=&loglevel=4&plugins=org.apache.felix.webconsole.internal.compendium.LogServlet&plugins=org.apache.felix.webconsole.internal.configuration.ConfigManager&plugins=org.apache.felix.webconsole.internal.core.BundlesServlet&plugins=org.apache.felix.webconsole.internal.core.ServicesServlet&plugins=org.apache.felix.webconsole.internal.misc.LicenseServlet&plugins=org.apache.felix.webconsole.internal.system.VMStatPlugin&propertylist=manager.root,http.service.filter,default.render,realm,username,password,category,locale,loglevel,plugins"
+  when: aem_password.changed
+  tags: aem_admin_password

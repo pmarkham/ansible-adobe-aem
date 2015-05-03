@@ -1,0 +1,38 @@
+<VirtualHost *:80>
+ServerName {{item.name}}
+DocumentRoot {{item.document_root}}
+
+<Directory {{item.document_root}}>
+  Options Indexes FollowSymLinks
+  Order allow,deny
+  Allow from all
+</Directory>
+
+# Logging
+ErrorLog /var/log/httpd/{{item.name}}_error.log
+LogLevel warn
+ServerSignature Off
+CustomLog /var/log/httpd/{{item.name}}_access.log "combined"
+
+<Directory />
+  Options FollowSymLinks
+  Order allow,deny
+  Allow from all
+  <IfModule disp_apache2.c>
+    ModMimeUsePathInfo On
+    # enable dispatcher for ALL request. if this is too restrictive,
+    # move it to another location
+    SetHandler dispatcher-handler
+  </IfModule>
+</Directory>
+
+#URL Rewrite
+RewriteEngine {{item.rewrite_engine}} 
+RewriteLog "/var/log/httpd/{{item.name}}_rewrite.log"
+RewriteLogLevel {{item.rewrite_log_level}}
+
+# --- Custom config lines start
+{{item.apache_custom_config}}
+# --- Custom config lines end
+
+</VirtualHost>

@@ -1,0 +1,176 @@
+{
+  "servers" : 
+  [ 
+  {
+    "port" : "{{jmxtrans_port}}",
+    "host" : "{{inventory_hostname}}",
+    "alias" : "{{inventory_hostname}}",
+    "username" : "{{jmxremote_user}}",
+    "password" : "{{jmxremote_password}}",
+    "queries" : 
+     [ 
+      {
+      "outputWriters" : 
+      [ 
+       {
+        "@class" : "com.googlecode.jmxtrans.model.output.GraphiteWriter",
+        "settings" : 
+        {
+          "port" : {{metrics_port}},
+          "host" : "{{metrics_hostname}}"
+        }
+       } 
+      ]
+      ,
+      "obj" : "java.lang:type=Memory",
+      "resultAlias": "heap",
+      "attr" : 
+      [ 
+       "HeapMemoryUsage", "NonHeapMemoryUsage" 
+      ]
+     }
+     ,
+      {
+      "outputWriters" : 
+      [
+       {
+        "@class" : "com.googlecode.jmxtrans.model.output.GraphiteWriter",
+        "settings" : 
+        {
+          "port" : {{metrics_port}},
+          "host" : "{{metrics_hostname}}"
+        }
+       } 
+      ]
+      ,
+      "obj" : "java.lang:name=PS Perm Gen,type=MemoryPool",
+      "resultAlias": "PermGen",
+      "attr" : 
+      [ 
+       "Usage" 
+      ]
+    }
+    ,
+      {
+      "outputWriters" : 
+      [
+       {
+        "@class" : "com.googlecode.jmxtrans.model.output.GraphiteWriter",
+        "settings" : 
+        {
+          "port" : {{metrics_port}},
+          "host" : "{{metrics_hostname}}"
+        }
+       } 
+      ]
+      ,
+      "obj" : "java.lang:name=PS Old Gen,type=MemoryPool",
+      "resultAlias": "Old_Gen_Heap",
+      "attr" : 
+      [ 
+       "Usage" 
+      ]
+    }
+    ,
+
+{% if agents_create is defined %}
+{#- Generate entries for each agent on this host #}
+{%- for agent in agents_create %}
+      {
+      "outputWriters" : 
+      [ 
+       {
+        "@class" : "com.googlecode.jmxtrans.model.output.GraphiteWriter",
+        "settings" : 
+        {
+          "port" : {{metrics_port}},
+          "host" : "{{metrics_hostname}}"
+        }
+       }
+      ],
+      "obj" : "com.adobe.granite.replication:id=\"{{agent.name}}\",type=agent",
+      "resultAlias": "{{agent.name}}",
+      "attr" : 
+      [ 
+       "QueueNumEntries" 
+      ]
+     }
+     ,
+{%- endfor %}
+{%- endif %}
+
+{#- Generate entry for standby author #}
+{%- if inventory_hostname in groups['auth-standby'] %}
+      {
+      "outputWriters" : 
+      [ 
+       {
+        "@class" : "com.googlecode.jmxtrans.model.output.GraphiteWriter",
+        "settings" : 
+        {
+          "port" : {{metrics_port}},
+          "host" : "{{metrics_hostname}}"
+        }
+       }
+      ],
+      "obj" : "org.apache.jackrabbit.oak:id=*,name=Status,type=\"Standby\"",
+      "resultAlias": "StandbySync",
+      "attr" :
+      [
+       "FailedRequests","SecondsSinceLastSuccess"
+      ]
+     }
+     ,
+{%- endif %}
+
+      {
+      "outputWriters" : 
+      [ 
+        {
+        "@class" : "com.googlecode.jmxtrans.model.output.GraphiteWriter",
+        "settings" : 
+        {
+          "port" : {{metrics_port}},
+          "host" : "{{metrics_hostname}}"
+        }
+       }
+      ]
+      ,
+      "obj" : "java.lang:type=Threading",
+      "resultAlias": "ThreadCount",
+      "attr" : 
+       [ 
+             "ThreadCount" 
+       ]
+    }
+    ,
+    {
+      "outputWriters" : 
+      [ 
+        {
+        "@class" : "com.googlecode.jmxtrans.model.output.GraphiteWriter",
+        "settings" : 
+        {
+          "port" : {{metrics_port}},
+          "host" : "{{metrics_hostname}}",
+          "typeNames" : 
+          [ 
+           "name" 
+          ]
+        }
+       } 
+      ]
+      ,
+      "obj" : "java.lang:type=GarbageCollector,name=*",
+      "resultAlias": "gc",
+      "attr" : 
+      [ 
+       "CollectionCount", "CollectionTime" 
+      ]
+    } 
+  ]
+  ,
+    "numQueryThreads" : 2
+  } 
+ ] 
+}

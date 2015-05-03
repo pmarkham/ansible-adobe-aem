@@ -1,0 +1,6 @@
+---
+- name: Create jmxtrans configuration
+  sudo: true
+  template: src=jmxtrans.client dest=/var/lib/jmxtrans/{{inventory_hostname}}.json owner=jmxtrans mode=0600
+  delegate_to: "{{jmxtrans_server_hostname}}"
+  tags: jmxtrans_client

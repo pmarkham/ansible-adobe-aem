@@ -1,0 +1,12 @@
+---
+- name: Create license file
+  sudo: true
+  sudo_user: prodapps
+  template:
+      src=../templates/license.properties
+      dest=/opt/adobecq/license.properties
+      owner=prodapps
+      group=prodapps
+      mode=0644
+      backup=yes
+  tags: aem_license

@@ -1,0 +1,10 @@
+---
+- name: Install Adobe CQ package
+  sudo: true
+  yum: name="{{adobecq_pkg}}" state=present disable_gpg_check=true
+  tags: adobecq
+
+- name: Configure /etc/sysconfig/adobecq
+  sudo: true
+  template: src=adobecq dest=/etc/sysconfig/adobecq owner=root group=root mode=0644
+  tags: adobecq

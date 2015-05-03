@@ -1,0 +1,33 @@
+---
+- name: Get list of sysconfig packages
+  shell: ls -1 {{ local_home }}/sysconfig/{{ node_platform }}/{{ node_stream }}/{{ node_platform }}-*.zip | sed -e 's|^.*/\({{ node_platform }}-.*\.zip\)$|\1|'
+  always_run: true
+  changed_when: False
+  register: sysconfigs
+  tags: aem_sysconfig
+ 
+- name: Upload Sysconfig packages
+  aempkg:
+     name='{{item}}'
+     state=uploaded
+     admin_user='{{admin_user}}'
+     admin_password='{{admin_password}}'
+     host='{{inventory_hostname}}'
+     port='{{port}}'
+     path='{{ local_home }}/sysconfig/{{ node_platform }}/{{ node_stream }}/{{item}}'
+  with_items: sysconfigs.stdout_lines
+  tags: aem_sysconfig
+
+- name: Install Sysconfig packages
+  aempkg:
+     name='{{item}}'
+     state=present
+     admin_user='{{admin_user}}'
+     admin_password='{{admin_password}}'
+     host='{{inventory_hostname}}'
+     port='{{port}}'
+     path='{{ local_home }}/sysconfig/{{ node_platform }}/{{ node_stream }}/{{item}}'
+     wait=30
+  with_items: sysconfigs.stdout_lines
+  register: aem_sysconfig_instance_installed
+  tags: aem_sysconfig

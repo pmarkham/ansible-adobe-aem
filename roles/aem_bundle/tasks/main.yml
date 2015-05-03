@@ -1,0 +1,11 @@
+---
+- name: AEM Bundles
+  sudo: False
+  aembundle:
+      name={{item.name}}
+      state={{item.state}}
+      admin_user={{admin_user}}
+      admin_password={{admin_password}}
+      host={{inventory_hostname}}
+      port={{port}}
+  with_items: aem_bundles

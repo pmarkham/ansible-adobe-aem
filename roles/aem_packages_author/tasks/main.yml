@@ -1,0 +1,26 @@
+---
+- name: Upload author specific packages
+  aempkg:
+     name='{{item.name}}'
+     state=uploaded
+     admin_user='{{admin_user}}'
+     admin_password='{{admin_password}}'
+     host='{{inventory_hostname}}'
+     port='{{port}}'
+     path='{{packages_repo}}/{{item.file | default()}}'
+  with_items: packages_author
+  tags: aem_packages_author
+
+- name: Install author specific packages
+  aempkg:
+     name='{{item.name}}'
+     state=present
+     admin_user='{{admin_user}}'
+     admin_password='{{admin_password}}'
+     host='{{inventory_hostname}}'
+     port='{{port}}'
+     path='{{packages_repo}}/{{item.file | default()}}'
+     wait=30
+  with_items: packages_author
+  register: aem_packages_instance_installed
+  tags: aem_packages_author

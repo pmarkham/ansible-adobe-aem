@@ -1,0 +1,16 @@
+---
+- name: Install jmxtrans package
+  sudo: true
+  yum: name="{{jmxtrans_pkg}}" state=present
+  tags: jmxtrans_server
+
+- name: Start jmxtrans service
+  sudo: true
+  service: name="jmxtransd" state=started enabled=true
+  tags: jmxtrans_server
+
+- name: Configure wrapper.conf
+  sudo: true
+  template: src=wrapper.conf dest=/usr/share/jmxtrans/etc/wrapper.conf owner=jmxtrans mode=0640
+  notify: restart jmxtransd
+  tags: jmxtrans_server

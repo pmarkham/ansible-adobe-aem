@@ -1,0 +1,208 @@
+#!/usr/bin/python
+
+import sys
+import os
+import platform
+import httplib
+import urllib
+import base64
+import json
+import string
+import random
+import HTMLParser
+
+DOCUMENTATION = '''
+---
+module: aembundle
+short_description: Manage AEM Bundles
+description:
+    - Enable and disable AEM bundles
+author: Paul Markham
+notes: []
+options:
+    name:
+        description:
+            - The name of the bundle
+        required: true
+    state:
+        description:
+            - Enable or disable the bundle
+        required: true
+        choices: [enabled, disabled]
+    admin_user:
+        description:
+            - AEM admin user account name
+        required: true
+    admin_password:
+        description:
+            - AEM admin user account password
+        required: true
+    host:
+        description:
+            - Host name where AEM is running
+        required: true
+    port:
+        description:
+            - Port number that AEM is listening on
+        required: true
+'''
+
+EXAMPLES='''
+# Enable AEM bundle
+- aembundle: name=com.day.crx.crxde-support
+            state=enabled
+            admin_user=admin
+            admin_password=admin
+            host=auth01
+            port=4502
+
+# Disable AEM bundle
+- aembundle: name=com.day.crx.crxde-support
+            state=disabled
+            admin_user=admin
+            admin_password=admin
+            host=auth01
+            port=4502
+'''
+
+# --------------------------------------------------------------------------------
+# AEMBundle class.
+# --------------------------------------------------------------------------------
+class AEMBundle(object):
+    def __init__(self, module):
+        self.module             = module
+        self.state              = self.module.params['state']
+        self.name               = self.module.params['name']
+        self.admin_user         = self.module.params['admin_user']
+        self.admin_password     = self.module.params['admin_password']
+        self.host               = self.module.params['host']
+        self.port               = self.module.params['port']
+
+        self.changed = False
+        self.msg = []
+        self.get_bundle_status()
+
+    # --------------------------------------------------------------------------------
+    # Look up bundle status
+    # --------------------------------------------------------------------------------
+    def get_bundle_status(self):
+        (status, output) = self.http_request('GET', '/system/console/bundles/%s.json' % (self.name))
+        if status == 200:
+            self.exists = True
+            self.info = json.loads(output)
+            if self.info['data'][0]['state'] == 'Active':
+                self.enabled = True
+            else:
+                self.enabled = False
+        else:
+            self.exists = False
+            self.enabled = False
+
+    # --------------------------------------------------------------------------------
+    # state='enabled'
+    # --------------------------------------------------------------------------------
+    def enable(self):
+        if self.exists:
+            if not self.enabled:
+                self.enable_bundle()
+        else:
+            self.module.fail_json(msg="can't find bundle '%s'" % (self.name))
+
+    # --------------------------------------------------------------------------------
+    # state='disabled'
+    # --------------------------------------------------------------------------------
+    def disable(self):
+        if self.exists:
+            if self.enabled:
+                self.disable_bundle()
+        else:
+            self.module.fail_json(msg="can't find bundle '%s'" % (self.name))
+
+    # --------------------------------------------------------------------------------
+    # Enable bundle
+    # --------------------------------------------------------------------------------
+    def enable_bundle(self):
+        fields = [('action', 'start')]
+        if not self.module.check_mode:
+            (status, output) = self.http_request('POST', '/system/console/bundles/%s' % (self.name), fields)
+            if status != 200:
+                self.module.fail_json(msg='failed to enable bundle: %s - %s' % (status, output))
+        self.changed = True
+        self.msg.append('bundle enabled')
+
+    # --------------------------------------------------------------------------------
+    # Disable bundle
+    # --------------------------------------------------------------------------------
+    def disable_bundle(self):
+        fields = [('action', 'stop')]
+        if not self.module.check_mode:
+            (status, output) = self.http_request('POST', '/system/console/bundles/%s' % (self.name), fields)
+            if status != 200:
+                self.module.fail_json(msg='failed to disable bundle: %s - %s' % (status, output))
+        self.changed = True
+        self.msg.append('bundle disabled')
+
+    # --------------------------------------------------------------------------------
+    # Issue http request.
+    # --------------------------------------------------------------------------------
+    def http_request(self, method, url, fields = None):
+        headers = {'Authorization' : 'Basic ' + base64.b64encode(self.admin_user + ':' + self.admin_password)}
+        if fields:
+            data = urllib.urlencode(fields)
+            headers['Content-type'] = 'application/x-www-form-urlencoded'
+        else:
+            data = None
+        conn = httplib.HTTPConnection(self.host + ':' + self.port)
+        try:
+            conn.request(method, url, data, headers)
+        except Exception as e:
+            self.module.fail_json(msg="http request '%s %s' failed: %s" % (method, url, e))
+        resp = conn.getresponse()
+        output = resp.read()
+        return (resp.status, output)
+
+    # --------------------------------------------------------------------------------
+    # Return status and msg to Ansible.
+    # --------------------------------------------------------------------------------
+    def exit_status(self):
+        if self.changed:
+            msg = ','.join(self.msg)
+            self.module.exit_json(changed=True, msg=msg)
+        else:
+            self.module.exit_json(changed=False)
+
+
+# --------------------------------------------------------------------------------
+# Mainline.
+# --------------------------------------------------------------------------------
+def main():
+    module = AnsibleModule(
+        argument_spec          = dict(
+            state              = dict(required=True, choices=['enabled', 'disabled']),
+            name               = dict(required=True),
+            admin_user         = dict(required=True),
+            admin_password     = dict(required=True),
+            host               = dict(required=True),
+            port               = dict(required=True),
+            ),
+        supports_check_mode=True
+        )
+
+    bundle = AEMBundle(module)
+    
+    state = module.params['state']
+
+    if state == 'enabled':
+        bundle.enable()
+    elif state == 'disabled':
+        bundle.disable()
+    else:
+        module.fail_json(msg='Invalid state: %s' % state)
+
+    bundle.exit_status()
+
+# --------------------------------------------------------------------------------
+# Ansible boiler plate code.
+# --------------------------------------------------------------------------------
+from ansible.module_utils.basic import *
+main()

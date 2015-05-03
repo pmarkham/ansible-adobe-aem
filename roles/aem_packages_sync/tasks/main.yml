@@ -1,0 +1,12 @@
+---
+- name: Create AEM package repo directory
+  file: dest={{packages_repo}} state=directory
+  tags: aem_packages_sync
+
+- name: Sync AEM package repo from jump host
+  synchronize: src={{packages_repo}}/ dest={{packages_repo}}/ delete=yes
+  tags: aem_packages_sync
+
+- name: Sync sysconfig dir from jump host
+  synchronize: src={{sysconfig_dir}}/ dest={{sysconfig_dir}}/ delete=yes
+  tags: aem_packages_sync

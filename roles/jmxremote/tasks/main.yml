@@ -1,0 +1,10 @@
+---
+- name: Create jmxremote password
+  sudo: true
+  copy: dest="{{jmxremote_dir}}/jmxremote.password" content="{{jmxremote_user}} {{jmxremote_password}}" owner={{jmxremote_owner}} mode=0600
+  tags: jmxremote
+
+- name: Create jmxremote access
+  sudo: true
+  copy: dest="{{jmxremote_dir}}/jmxremote.access" content="{{jmxremote_user}} readonly" owner={{jmxremote_owner}} mode=0600
+  tags: jmxremote

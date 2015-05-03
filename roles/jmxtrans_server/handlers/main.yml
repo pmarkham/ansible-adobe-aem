@@ -1,0 +1,4 @@
+---
+- name: restart jmxtransd
+  sudo: true
+  service: name=jmxtransd state=restarted

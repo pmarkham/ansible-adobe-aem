@@ -1,0 +1,5 @@
+---
+- name: Install Dynatrace AEM agent package
+  sudo: true
+  yum: name={{dynatrace_aem_agent_pkg}} state=present disable_gpg_check=true
+  tags: dyntrace_aem

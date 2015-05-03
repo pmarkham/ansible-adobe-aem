@@ -1,0 +1,1 @@
+LoadModule dtagent_module {{dynatrace_web_agent_path}}/agent/lib64/libdtagent.so

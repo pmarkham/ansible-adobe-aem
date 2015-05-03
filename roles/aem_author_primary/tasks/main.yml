@@ -1,0 +1,6 @@
+---
+- name: Remove /opt/adobecq/crx-quickstart/install directory
+  sudo: true
+  sudo_user: prodapps
+  file: dest=/opt/adobecq/crx-quickstart/install state=absent
+  tags: aem_author_primary

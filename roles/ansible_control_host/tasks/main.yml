@@ -1,0 +1,27 @@
+---
+- name: Determine home directory
+  set_fact: ansible_home={{lookup('env', 'HOME')}}
+
+- name: Create ~/ansible
+  file: dest={{ansible_home}}/ansible state=directory mode=0700
+
+- name: Create ~/ansible/bin
+  file: dest={{ansible_home}}/ansible/bin state=directory mode=0700
+
+- name: Create ~/aempkgs directory
+  file: dest={{ansible_home}}/aempkgs state=directory mode=0700
+
+- name: Create ~/sysconfig directory
+  file: dest={{ansible_home}}/sysconfig state=directory mode=0700
+
+- name: Create ~/tmp directory
+  file: dest={{ansible_home}}/tmp state=directory mode=0700
+
+- name: Create ~/.ansible_password
+  file: dest={{ansible_home}}/.ansible_password state=directory mode=0700
+
+- name: Deploy ssh_shell script
+  copy: src=ssh_shell dest={{ansible_home}}/ansible/bin mode=0700
+
+- name: Deploy ansible_deploy_pkg script
+  copy: src=ansible_deploy_pkg dest={{ansible_home}}/ansible/bin mode=0700

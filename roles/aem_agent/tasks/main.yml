@@ -1,0 +1,35 @@
+# Manage replication agents
+---
+- name: Delete agents
+  aemagent:
+      state=absent
+      name={{item.name}}
+      folder={{item.folder}}
+      admin_user={{admin_user}}
+      admin_password={{admin_password}}
+      host={{inventory_hostname}}
+      port={{port}}
+  with_items: agents_delete
+
+- name: Create agents
+  aemagent:
+      state=present
+      name="{{item.name}}"
+      title="{{item.title}}"
+      folder="{{item.folder}}"
+      admin_user="{{admin_user}}"
+      admin_password="{{admin_password}}"
+      host="{{inventory_hostname}}"
+      port={{port}}
+      transport_uri="{{item.transport_uri}}"
+      transport_user="{{agent_user}}"
+      transport_password="{{agent_password}}"
+      triggers="{{item.triggers | default('')}}"
+      serialization_type="{{item.serialization_type | default('durbo')}}"
+      connection_close="{{item.connection_close | default('false')}}"
+      connect_timeout="{{item.connect_timeout | default('')}}"
+      agent_user="{{item.agent_user | default('')}}"
+      protocol_version="{{item.protocol_version | default('')}}"
+      headers="{{item.headers | default('')}}"
+      log_level="{{item.log_level | default('info')}}"
+  with_items: agents_create

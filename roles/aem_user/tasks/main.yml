@@ -1,0 +1,17 @@
+# Create users
+---
+- name: AEM accounts
+  aemuser:
+      state="{{item.state}}"
+      id="{{item.id}}"
+      password="{{item.password}}"
+      first_name="{{item.first_name}}"
+      last_name="{{item.last_name}}"
+      groups="{{item.groups}}"
+      admin_user="{{admin_user}}"
+      admin_password="{{admin_password}}"
+      host="{{inventory_hostname}}"
+      port="{{port}}"
+      version="{{license_product_version}}"
+  with_items: aem_users
+  tags: aem_users

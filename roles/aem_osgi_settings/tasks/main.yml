@@ -1,0 +1,34 @@
+---
+- name: Generate SHA256 hash of admin password
+  aemsha256: user='{{admin_user}}' password='{{admin_password}}'
+  tags: aem_osgi_settings
+
+- name: Create directory for OsgiManager.config
+  sudo: true
+  sudo_user: prodapps
+  file: dest=/opt/adobecq/crx-quickstart/launchpad/config/org/apache/felix/webconsole/internal/servlet state=directory mode=0755
+  tags: aem_osgi_settings
+
+- name: Set OSGI admin password
+  sudo: true
+  sudo_user: prodapps
+  template: dest=/opt/adobecq/crx-quickstart/launchpad/config/org/apache/felix/webconsole/internal/servlet/OsgiManager.config src=OsgiManager.config mode=0644
+  register: aem_osgi_password
+  tags: aem_osgi_settings
+
+- name: set aem_osgi_password fact
+  set_fact:
+      aem_osgi_password_changed: '{{aem_osgi_password.changed}}'
+  tags: aem_osgi_settings
+
+- name: Create directory for AemEnvironmentIndicatorFilter.config
+  sudo: true
+  sudo_user: prodapps
+  file: dest=/opt/adobecq/crx-quickstart/launchpad/config/com/adobe/acs/commons/wcm/impl state=directory mode=0755
+  tags: aem_osgi_settings
+
+- name: Set AEM Indicator
+  sudo: true
+  sudo_user: prodapps
+  template: dest=/opt/adobecq/crx-quickstart/launchpad/config/com/adobe/acs/commons/wcm/impl/AemEnvironmentIndicatorFilter.config src=AemEnvironmentIndicatorFilter.config mode=0644
+  tags: aem_osgi_settings

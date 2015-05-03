@@ -1,0 +1,9 @@
+---
+- name: User limits
+  sudo: true
+  lineinfile: dest=/etc/security/limits.conf
+      regexp='^{{item.user}} {{item.type}} {{item.item}} {{item.value}}$'
+      line='{{item.user}} {{item.type}} {{item.item}} {{item.value}}'
+      insertafter=EOF
+  with_items: user_limits
+  tags: os_user_limits

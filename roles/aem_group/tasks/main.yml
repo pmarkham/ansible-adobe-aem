@@ -1,0 +1,15 @@
+# Create groups
+---
+- name: AEM Groups
+  aemgroup:
+      state="{{item.state}}"
+      id="{{item.id}}"
+      name="{{item.name}}"
+      groups="{{item.groups}}"
+      admin_user="{{admin_user}}"
+      admin_password="{{admin_password}}"
+      host="{{inventory_hostname}}"
+      port="{{port}}"
+      version="{{license_product_version}}"
+  with_items: aem_groups
+  tags: aem_groups
