@@ -7,7 +7,7 @@
 #    platform     - tme, tcom, skynews, nrlclubs, etc
 #    environment  - dev1, uat1, etc
 
-export PATH=/usr/bin:/bin
+export PATH=/usr/bin:/bin:$HOME/ansible/bin
 
 umask 077
 
@@ -63,20 +63,23 @@ if [ ! -d $env ]; then
 fi
 
 # Syntax check the site.yml
-cd $env/bin/shared
+cd $env/shared/bin
 echo "Syntax checking site.yml"
-./run -c local --syntax-check --limit all site/site.yml
+./run -c local --syntax-check --limit all site.yml
 if [ $? -ne 0 ]; then
     echo "deploy failed: ansible syntax check failed" >&2
     exit 1
 fi
 echo "Syntax check successful"
 
-echo "Deploying to $HOME/ansible/$platform/$env"
-rm -rf $HOME/ansible/$platform/$env 2>/dev/null
-mkdir -p $HOME/ansible/$platform
-mv $HOME/$dir/$platform/$env $HOME/ansible/$platform
-echo "Deploy sucessful"
+lock_file="$HOME/.ansible_lock/${platform}_${env}_lock"
+lock $lock_file "(
+    echo \"Deploying to $HOME/ansible/$platform/$env\"
+    rm -rf $HOME/ansible/$platform/$env 2>/dev/null
+    mkdir -p $HOME/ansible/$platform
+    mv $HOME/$dir/$platform/$env $HOME/ansible/$platform
+    echo \"Deploy sucessful\"
+    )"
 
 build_num=`grep '^BAMBOO_BUILDNUM' $HOME/ansible/$platform/$env/bamboo-build.txt |cut -f2 -d=`
 logger -p daemon.info "Deployed Ansible configuration, build $build_num, to $HOME/ansible/$platform/$env"

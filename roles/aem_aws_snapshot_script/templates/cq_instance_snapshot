@@ -1,0 +1,218 @@
+#!/bin/env /opt/puppet-omnibus/embedded/bin/ruby
+# This tool manages snapshots from volumes attached to the instance running it
+# Prerequisites
+#   - instance profile must be set to backup_role
+#   - backup_volume instance tag must be set to the UUID of the volume to be backed up
+#
+# Volume is derived from backup_volume instance tag, so this tag must be set to the UUID of the target volume
+# Snapshots are taken every day and are two types:
+#   - Monthly: Snapshots taken on 1st of each month and kept for 3 months
+#   - Daily: All other snapshots. Retentioon of daily snapshots is 7 days
+#
+# Usage: cq_backup_aws.rb UUID
+# where
+# UUID is displayed in five groups separated by hyphens,
+# in the form 8-4-4-4-12 for a total of 36 characters (32 alphanumeric characters and four hyphens)
+# See http://en.wikipedia.org/wiki/Uuid
+#
+require 'aws-sdk'
+require 'open-uri'
+require 'logger'
+require 'date'
+
+# Parameters
+$retention = { 'daily' => '7', 'monthly' => '90' } # In number of days
+
+# Set up logging
+log_dir = '/var/log/adobecq'
+Dir.mkdir(log_dir, 0755) unless File.directory?(log_dir)
+script = File.basename($0, ".rb")
+$log_file = "#{log_dir}/#{script}.log"
+$LOG = Logger.new($log_file, 'monthly')
+$LOG.level = Logger::DEBUG
+env=`/bin/grep ^node_environment /opt/telstra/etc/node.properties 2>/dev/null`
+$LOG.level = Logger::INFO if env =~  /prod/
+
+def metadata(id = "")
+  open("http://169.254.169.254/latest/meta-data/#{id||=''}").read.strip
+rescue => details
+  $LOG.error "Could not retrieve ec2 metadata for #{id}: #{details.message}"
+end
+
+def region
+  # Get rid of the last character of availability zone to find the region
+  region = metadata('placement/availability-zone')[0..-2]
+  region
+end
+
+def volume_control(action, services, mount_point)
+  # action: stop or start
+  # services: services to manipulate separated by semicolon ;
+  # mount_point: filesystem to mount/unmount. Must be configured in /etc/fstab
+  s = Array.new
+  proc_stat = Array.new
+  s = services.split(';')
+  if action == "stop"
+    s.each  do |service|
+      $LOG.debug "Stopping #{service}"
+      cmd= "/sbin/service #{service} #{action} 1>/dev/null 2>&1"
+      $LOG.debug  "Executing #{cmd}"
+      system( cmd ) or
+        $LOG.error "Stopping #{service} FAILED"
+        # return $?.exitstatus
+    end
+    sleep 10
+    $LOG.debug "Unmounting #{mount_point}"
+    cmd = "/bin/umount #{mount_point} 1>/dev/null 2>&1"
+    $LOG.debug  "Executing #{cmd}"
+    system( cmd ) or $LOG.error "Unmounting #{mount_point} FAILED"
+    return $?.exitstatus
+  elsif action == "start"
+    $LOG.debug "Mounting #{mount_point}"
+    cmd = "/bin/mount #{mount_point} 1>/dev/null 2>&1"
+    $LOG.debug  "Executing #{cmd}"
+    system( cmd ) or $LOG.error "Mounting #{mount_point} FAILED"
+    sleep 5
+    s.each  do |service|
+      $LOG.debug "Starting #{service}"
+      cmd= "/sbin/service #{service} #{action} 1>/dev/null 2>&1"
+      $LOG.debug  "Executing #{cmd}"
+      system( cmd ) or $LOG.error "Starting #{service} FAILED"
+      proc_stat.push($?.exitstatus)
+    end
+    return proc_stat.max
+  end
+end
+
+
+def create_snapshot
+  host = `hostname`.strip
+  env = $instance.tags.node_environment
+  stream = $instance.tags.node_stream
+  uuids = $instance.tags.backup_volume
+  snap_type = 'daily'
+  snap_type = 'monthly' if Time.now.day == 1
+  skip = 'no'
+  v_id = 'NIL'
+  vol_ids = Array.new
+  vol_count = 1
+  timestamp = Time.now.strftime("%Y%m%d%H%M")
+
+  retv = volume_control 'stop', 'logstash-forwarder', '/opt/adobecq'
+  if retv != 0
+    $LOG.error "create_snapshot: Skipping snapshot creation - Cannot stop activity to volume"
+    skip = 'yes'
+  end
+
+  uuids.split(/, */).each do |uuid|
+    uuid = uuid.chomp
+    if uuid !~ /^.{8}-.{4}-.{4}-.{4}-.{12}$/
+      $LOG.error "backup_volume tag is not set or value is not in required format. See http://en.wikipedia.org/wiki/Uuid"
+      next
+    end
+    $LOG.debug "Volume UUID is #{uuid}"
+
+    # Find Volume ID from UUID and take snapshot
+    # Snapshot will be created only if there is a single volume with specified UUID AND
+    # this volume is attached to the instance executing this tool
+    vol_coll = AWS.memoize do
+      $ec2.volumes.tagged('UUID').tagged_values(uuid)
+    end
+
+    vol_num = vol_coll.to_a.size
+    if vol_num == 0
+      $LOG.error "Could not find volume with UUID #{uuid}"
+      skip = 'yes'
+    elsif vol_num > 1
+      $LOG.error "Found more than one volume matching UUID #{uuid}"
+      skip = 'yes'
+    end
+
+    vol_coll.each do |v|
+      name = "#{host}.#{stream} Volume #{vol_count} #{timestamp}"
+      vol_count += 1
+      # Take snapshot only if volume is attached to this instance
+      v.attachments.each do |a|
+        if a.volume.id == v.id and a.instance.id == $instance_id
+          v_id = v.id
+          if skip == 'no'
+            $LOG.debug  "Creating snapshot with description: Created on #{host}(#{$instance_id}) from #{v_id}"
+            $LOG.debug  "Snapshot tags: type:#{snap_type}; environment:#{env}"
+            snapshot = v.create_snapshot("Created on #{host}(#{$instance_id}) from #{v_id}")
+            sleep 10
+            $ec2.tags.create(snapshot, 'type', :value => snap_type)
+            $ec2.tags.create(snapshot, 'environment', :value => env)
+            $ec2.tags.create(snapshot, 'Name', :value => name)
+            $LOG.info "Initiated snapshot #{snapshot.id} with description: Created on #{host}(#{$instance_id}) from #{v_id}"
+            $LOG.warn "Note that snapshot status will stay Pending until it is completed by AWS background process"
+          end
+          vol_ids << v_id
+        else
+          $LOG.error "create_snapshot: Volume #{v_id} is not attached to local instance #{$instance_id}"
+        end
+      end
+    end
+
+  end
+
+  retv_start = volume_control 'start', 'logstash-forwarder', '/opt/adobecq'
+  $LOG.error "create_snapshot: Snapshots have been created, but cannot resume activity on volume" if retv_start != 0
+  return vol_ids
+end
+
+def manage_snapshots (volume_ids)
+  if volume_ids.length == 0
+    $LOG.error "manage_snapshots: No volume IDs have been received"
+    return
+  end
+
+  now = Time.now
+  # Get all snapshots from a particular volume
+  volume_ids.each do |volume_id|
+    $LOG.debug "manage_snapshots: searching snpashots from volume #{volume_id}"
+    snapshots = AWS.memoize do
+      $ec2.snapshots.filter('volume-id', volume_id)
+    end
+    $LOG.warn "No snapshots found from volume #{volume_id}" if  snapshots.to_a.size == 0
+    snapshots.each do |s|
+      # puts "#{s.id} #{s.description} #{s.tags.type} #{s.status} #{s.start_time}"
+      ret = $retention[s.tags.type].to_i * 3600 * 24
+      snapshot_time = Date.parse("#{s.start_time}")
+      diff = now.to_i - snapshot_time.strftime('%s').to_i
+
+      $LOG.warn "manage_snapshots: Found snapshot with status ERROR: #{s.id}, #{s.description}" if s.status == "error"
+      $LOG.debug "#{diff} seconds since snapshot #{s.id}(#{s.tags.type}) was created"
+
+      if diff > ret.to_i
+        $LOG.info "Deleting #{s.tags.type} snapshot #{s.id}, #{s.description}"
+        begin
+          s.delete
+        rescue => details
+          $LOG.error "manage_snapshots: Failed to delete #{s.tags.type} snapshot #{s.id}, #{s.description}: #{details.message}"
+        end
+        $LOG.info "Deleted #{s.tags.type} snapshot #{s.id}, #{s.description}"
+      end
+    end
+  end
+end
+
+
+begin
+  $LOG.debug "Connecting to AWS API"
+  $ec2 = AWS::EC2.new
+rescue => details
+  $LOG.error "Could not connect to to API: #{details.message}"
+end
+
+$LOG.debug "Setting region to #{region}"
+$ec2 = $ec2.regions[region]
+$instance_id = metadata('instance-id')
+$LOG.debug "Instance ID is #{$instance_id}"
+$instance = $ec2.instances[$instance_id]
+
+# Create snapshot of the volume and grab volume id
+volume_ids = create_snapshot
+
+# Delete old snapshots
+manage_snapshots volume_ids
+

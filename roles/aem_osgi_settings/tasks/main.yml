@@ -21,14 +21,24 @@
       aem_osgi_password_changed: '{{aem_osgi_password.changed}}'
   tags: aem_osgi_settings
 
-- name: Create directory for AemEnvironmentIndicatorFilter.config
+- name: Create AEM install directory
   sudo: true
   sudo_user: prodapps
-  file: dest=/opt/adobecq/crx-quickstart/launchpad/config/com/adobe/acs/commons/wcm/impl state=directory mode=0755
+  file: dest=/opt/adobecq/crx-quickstart/install state=directory mode=0755
   tags: aem_osgi_settings
 
-- name: Set AEM Indicator
+
+# Old file had .cfg extension. Change to be .config to be consistent with aem_auth_standby role.
+- name: Ensure config file with old name removed
   sudo: true
   sudo_user: prodapps
-  template: dest=/opt/adobecq/crx-quickstart/launchpad/config/com/adobe/acs/commons/wcm/impl/AemEnvironmentIndicatorFilter.config src=AemEnvironmentIndicatorFilter.config mode=0644
+  file: dest=/opt/adobecq/crx-quickstart/install/org.apache.jackrabbit.oak.plugins.segment.SegmentNodeStoreService.cfg state=absent
   tags: aem_osgi_settings
+
+# Don't create this file on the auth-standby server as aem_auth_standby role will create it with extra paramters
+- name: Disable AEM Online Compaction Pause
+  sudo: true
+  sudo_user: prodapps
+  template: dest=/opt/adobecq/crx-quickstart/install/org.apache.jackrabbit.oak.plugins.segment.SegmentNodeStoreService.config src=org.apache.jackrabbit.oak.plugins.segment.SegmentNodeStoreService.config mode=0644
+  tags: aem_osgi_settings
+  when: groups['auth-standby'] is not defined or inventory_hostname not in groups['auth-standby']

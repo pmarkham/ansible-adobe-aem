@@ -1,0 +1,10 @@
+---
+- name: AWS snapshot cron entry
+  cron: name="AEM snapshot backup {{ node_platform }} {{ node_stream }}" job="{{ local_home }}/ansible/{{ node_platform }}/{{ node_stream }}/run -v aws_snapshot_backup.yml > {{ local_home }}/logs/cq_instance_snapshot_{{ node_platform }}_{{ node_stream }}_$(date +\%Y\%m\%d\%H\%M\%S).log 2>&1" hour=0 minute=0
+  when: inventory_hostname in groups['cronhosts']
+  tags: aem_aws_snapshot_cron
+
+- name: AWS snapshot cron log dir
+  when: inventory_hostname in groups['cronhosts']
+  file: path={{ local_home }}/logs state=directory
+  tags: aem_aws_snapshot_cron

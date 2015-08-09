@@ -161,7 +161,7 @@ class AEMUser(object):
         else:
             # Create a new user
             if not self.password:
-                self.module.fail_json(msg='Missing required argument: password')
+                self.generate_password()
             if not self.first_name:
                 self.module.fail_json(msg='Missing required argument: first_name')
             if not self.last_name:
@@ -260,6 +260,16 @@ class AEMUser(object):
         return (resp.status, output)
 
     # --------------------------------------------------------------------------------
+    # Generate a random password 
+    # --------------------------------------------------------------------------------
+    def generate_password(self):
+        chars = string.ascii_letters + string.digits + '!@#$%^&*()-_=+.,:;|?'
+        self.password = ''
+        for i in range(0,16):
+            self.password += random.choice(chars)
+        self.msg.append("generated password '%s'" % self.password)
+
+    # --------------------------------------------------------------------------------
     # Return status and msg to Ansible.
     # --------------------------------------------------------------------------------
     def exit_status(self):
@@ -280,10 +290,10 @@ def main():
             state          = dict(required=True, choices=['present', 'absent']),
             first_name     = dict(default=None),
             last_name      = dict(default=None),
-            password       = dict(default=None),
+            password       = dict(default=None, no_log=True),
             groups         = dict(default=None, type='list'),
             admin_user     = dict(required=True),
-            admin_password = dict(required=True),
+            admin_password = dict(required=True, no_log=True),
             host           = dict(required=True),
             port           = dict(required=True),
             version        = dict(required=True),

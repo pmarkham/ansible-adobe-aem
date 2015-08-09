@@ -12,4 +12,4 @@
       port="{{port}}"
       version="{{license_product_version}}"
   with_items: aem_groups
-  tags: aem_groups
+  tags: aem_group

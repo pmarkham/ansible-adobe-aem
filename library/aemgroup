@@ -252,7 +252,7 @@ def main():
             name           = dict(default=None),
             groups         = dict(default=None, type='list'),
             admin_user     = dict(required=True),
-            admin_password = dict(required=True),
+            admin_password = dict(required=True, no_log=True),
             host           = dict(required=True),
             port           = dict(required=True),
             version        = dict(required=True),

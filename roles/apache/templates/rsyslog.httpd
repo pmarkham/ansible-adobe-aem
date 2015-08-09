@@ -1,0 +1,6 @@
+:PROGRAMNAME, isequal, "httpd-access" -/var/log/httpd/access.log
+:PROGRAMNAME, isequal, "httpd-error" -/var/log/httpd/error_log
+:PROGRAMNAME, isequal, "httpd-rewrite" -/var/log/httpd/rewrite.log
+:PROGRAMNAME, isequal, "httpd-dispatcher" -/var/log/httpd/dispatcher.log
+local0.* @@logs:514;RSYSLOG_ForwardFormat
+& ~

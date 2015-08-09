@@ -143,7 +143,7 @@ class AEMService(object):
                     self.msg.append('instance is active')
                 break
             if time.time() - start_time > self.timeout:
-                self.module.fail_json(msg='Timed out checking waiting for instance to become active')
+                self.module.fail_json(msg='Timed out waiting for instance to become active')
             time.sleep(10)
             continue
 
@@ -256,7 +256,7 @@ def main():
             host           = dict(required=True),
             port           = dict(required=True),
             admin_user     = dict(required=False),
-            admin_password = dict(required=False),
+            admin_password = dict(required=False, no_log=True),
             timeout        = dict(default=600),
             authenticate   = dict(default=False, type='bool'),
             ),

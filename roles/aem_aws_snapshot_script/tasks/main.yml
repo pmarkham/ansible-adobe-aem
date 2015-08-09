@@ -1,0 +1,10 @@
+---
+- name: AWS snapshot script
+  sudo: true
+  template: src=cq_instance_snapshot dest=/usr/local/bin/cq_instance_snapshot owner=root group=root mode=755
+  tags: aem_aws_snapshot_script
+
+- name: AWS snapshot script cleanup
+  sudo: true
+  file: dest=/usr/local/bin/cq_instance_backup state=absent
+  tags: aem_aws_snapshot_script

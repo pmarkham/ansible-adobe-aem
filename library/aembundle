@@ -181,7 +181,7 @@ def main():
             state              = dict(required=True, choices=['enabled', 'disabled']),
             name               = dict(required=True),
             admin_user         = dict(required=True),
-            admin_password     = dict(required=True),
+            admin_password     = dict(required=True, no_log=True),
             host               = dict(required=True),
             port               = dict(required=True),
             ),

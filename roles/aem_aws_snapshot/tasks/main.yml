@@ -1,0 +1,11 @@
+---
+# this has to be a role, to run the backup, as the play that calls this does a stop first
+# and a start afterwards, both of which are roles - if it was a task the roles would be run 
+# first - not what we want
+- name: AWS Snapshot
+  sudo: true
+  command: /usr/local/bin/cq_instance_snapshot
+  register: cq_instance_snapshot
+  ignore_errors: true
+
+- debug: var=cq_instance_snapshot.stderr

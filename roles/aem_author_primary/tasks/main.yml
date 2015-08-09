@@ -1,6 +1,6 @@
 ---
-- name: Remove /opt/adobecq/crx-quickstart/install directory
+- name: Remove org.apache.jackrabbit.oak.plugins.segment.standby.store.StandbyStoreService.config
   sudo: true
   sudo_user: prodapps
-  file: dest=/opt/adobecq/crx-quickstart/install state=absent
+  file: dest=/opt/adobecq/crx-quickstart/install/org.apache.jackrabbit.oak.plugins.segment.standby.store.StandbyStoreService.config state=absent
   tags: aem_author_primary

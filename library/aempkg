@@ -382,7 +382,7 @@ def main():
             state          = dict(required=True, choices=['present', 'absent', 'uploaded', 'uninstalled']),
             path           = dict(default=None),
             admin_user     = dict(required=True),
-            admin_password = dict(required=True),
+            admin_password = dict(required=True, no_log=True),
             host           = dict(required=True),
             port           = dict(required=True),
             timeout        = dict(default=600),

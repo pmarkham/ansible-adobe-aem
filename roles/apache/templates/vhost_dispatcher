@@ -1,4 +1,4 @@
-<VirtualHost *:80>
+<VirtualHost *:{{item.vhost_port|default(80)}}>
 ServerName {{item.name}}
 DocumentRoot {{item.document_root}}
 
@@ -8,11 +8,7 @@ DocumentRoot {{item.document_root}}
   Allow from all
 </Directory>
 
-# Logging
-ErrorLog /var/log/httpd/{{item.name}}_error.log
-LogLevel warn
 ServerSignature Off
-CustomLog /var/log/httpd/{{item.name}}_access.log "combined"
 
 <Directory />
   Options FollowSymLinks
@@ -25,11 +21,6 @@ CustomLog /var/log/httpd/{{item.name}}_access.log "combined"
     SetHandler dispatcher-handler
   </IfModule>
 </Directory>
-
-#URL Rewrite
-RewriteEngine {{item.rewrite_engine}} 
-RewriteLog "/var/log/httpd/{{item.name}}_rewrite.log"
-RewriteLogLevel {{item.rewrite_log_level}}
 
 # --- Custom config lines start
 {{item.apache_custom_config}}

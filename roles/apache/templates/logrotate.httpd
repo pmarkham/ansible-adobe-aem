@@ -1,0 +1,12 @@
+/var/log/httpd/*log {
+  compress
+  copytruncate
+  missingok
+  sharedscripts
+  notifempty
+  daily
+  rotate 1
+  postrotate
+    {{apache_log_rotate_cmd}}
+  endscript
+}

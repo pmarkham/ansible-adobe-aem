@@ -4,7 +4,7 @@
   {
     "port" : "{{jmxtrans_client_port}}",
     "host" : "{{inventory_hostname}}",
-    "alias" : "{{inventory_hostname}}",
+    "alias" : "{{node_platform}}.{{node_environment}}.{{inventory_hostname | replace('.', '_')}}.jvm",
     "username" : "{{jmxremote_user}}",
     "password" : "{{jmxremote_password}}",
     "queries" : 
@@ -146,6 +146,9 @@
        ]
     }
     ,
+{#- Generate entry for primary author and all publishers #}
+{% if groups['auth-primary'] is defined and groups['publ'] is defined %}
+  {%- if inventory_hostname in groups['auth-primary'] or inventory_hostname in groups['publ'] %}
       {
       "outputWriters" :
       [
@@ -159,14 +162,17 @@
        }
       ]
       ,
-      "obj" : "org.apache.jackrabbit.oak:id=5,name=\"Lucene Index statistics\",type=\"LuceneIndex\"",
+      "obj" : "org.apache.jackrabbit.oak:id=*,name=\"Lucene Index statistics\",type=\"LuceneIndex\"",
       "resultAlias": "Lucene_Index",
       "attr" :
        [
              "IndexStats"
-       ]
+       ],
+      "keys" : [ "indexSize", "maxDoc", "numDeletedDocs", "numDocs" ]
     }
     ,
+  {%- endif %}
+{%- endif %}
     {
       "outputWriters" : 
       [ 

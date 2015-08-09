@@ -1,0 +1,38 @@
+#!/usr/bin/env python
+
+# Run a command with locking to ensure only one copy runs at a time.
+
+import sys
+import fcntl
+import subprocess
+
+if len(sys.argv) < 3:
+    print "Usage: lock lock_file command"
+    exit(1)
+
+lock_file = sys.argv[1]
+
+command = sys.argv[2:]
+
+f = open(lock_file, 'w')
+
+try:
+    fcntl.lockf(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+except:
+    print "Waiting for lock " + lock_file
+    sys.stdout.flush()
+    fcntl.lockf(f, fcntl.LOCK_EX)
+
+print "Aquired lock " + lock_file
+sys.stdout.flush()
+
+rc = subprocess.call(" ".join(command), shell=True)
+
+fcntl.lockf(f, fcntl.LOCK_UN)
+
+print "Released lock " + lock_file
+sys.stdout.flush()
+
+f.close()
+
+exit(rc)

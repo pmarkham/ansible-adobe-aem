@@ -20,8 +20,14 @@
 - name: Create ~/.ansible_password
   file: dest={{ansible_home}}/.ansible_password state=directory mode=0700
 
+- name: Create ~/.ansible_lock
+  file: dest={{ansible_home}}/.ansible_lock state=directory mode=0700
+
 - name: Deploy ssh_shell script
   copy: src=ssh_shell dest={{ansible_home}}/ansible/bin mode=0700
 
 - name: Deploy ansible_deploy_pkg script
   copy: src=ansible_deploy_pkg dest={{ansible_home}}/ansible/bin mode=0700
+
+- name: Deploy lock script
+  copy: src=lock dest={{ansible_home}}/ansible/bin mode=0700

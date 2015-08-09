@@ -2,3 +2,9 @@
 - name: restart apache
   sudo: true
   service: name=httpd state=restarted
+  when: node_environment != 'prod'
+
+- name: restart rsyslogd
+  sudo: true
+  shell: /bin/kill -HUP `/bin/cat /var/run/syslogd.pid`
+  when: node_environment != 'prod'

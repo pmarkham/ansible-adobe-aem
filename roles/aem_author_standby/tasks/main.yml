@@ -1,5 +1,5 @@
 ---
-- stat: path=/opt/adobecq/crx-quickstart/install/org.apache.jackrabbit.oak.plugins.segment.SegmentNodeStoreService.config
+- stat: path=/opt/adobecq/crx-quickstart/install/org.apache.jackrabbit.oak.plugins.segment.standby.store.StandbyStoreService.config
   always_run: true
   register: standby_file
   tags: aem_author_slave

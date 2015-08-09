@@ -104,3 +104,15 @@
   sudo: true
   service: name=httpd state=started enabled=yes
   tags: apache
+
+- name: Configure logrotate
+  sudo: true
+  template: dest=/etc/logrotate.d/httpd src=logrotate.httpd owner=root group=root mode=0444
+  tags: apache
+
+- name: Configure rsyslog
+  sudo: true
+  template: dest=/etc/rsyslog.d/22-adobecq-dispatcher.conf src=rsyslog.httpd owner=root group=root mode=0444
+  tags: apache
+  notify:
+    - restart rsyslogd

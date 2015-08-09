@@ -16,6 +16,8 @@
     {%- set java_mem = 8192 %}
 {%- elif ansible_memtotal_mb > 7000 %}
     {%- set java_mem = 6144 %}
+{%- elif ansible_memtotal_mb > 3000 %}
+    {%- set java_mem = 2048 %}
 {%- else %}
     {%- set java_mem = 1024 %}
 {%- endif %}
