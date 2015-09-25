@@ -189,6 +189,7 @@ class CQOsgi(object):
     # --------------------------------------------------------------------------------
     def find_factory_match(self):
         f_match = 0
+        factory = ''
         for f, d in self.factory_instances.iteritems():
             v_match = 0
             for k,v in self.value.iteritems():
@@ -201,11 +202,13 @@ class CQOsgi(object):
                     v_match += 1
             if v_match == len(self.value.keys()):
                 f_match += 1
+                factory = f
 
         if f_match == 0:
             return False
         elif f_match == 1:
-           return True
+            self.factory = factory
+            return True
         else:
             self.module.fail_json(msg='Factory %s matches more than one existing factories, this SHOULD not happen' % self.id)
 
@@ -230,9 +233,28 @@ class CQOsgi(object):
 
         (status, output) = self.http_request2('POST', '/system/console/configMgr/%5BTemporary%20PID%20replaced%20by%20real%20PID%20upon%20save%5D', fields)
         if status != 200:
-            self.module.fail_json(msg='failed to update property %s in %s: %s - %s' % (self.property, self.id, status, output))
+            self.module.fail_json(msg='failed to create factory %s: %s - %s' % (self.id, status, output))
         self.changed = True
-        self.msg.append('factory created')
+        self.find_factory()
+        self.find_factory_match()
+        self.msg.append('factory %s created' % (self.factory))
+
+    # --------------------------------------------------------------------------------
+    # Delete factory config
+    # --------------------------------------------------------------------------------
+    def delete_factory(self):
+        fields = []
+        if self.module.check_mode:
+            return
+
+        fields.append(('delete', 'true'))
+        fields.append(('apply', 'true'))
+
+        (status, output) = self.http_request2('POST', '/system/console/configMgr/%s' % (self.factory), fields)
+        if status != 200:
+            self.module.fail_json(msg='failed to delete %s: %s - %s' % (self.factory, status, output))
+        self.changed = True
+        self.msg.append('factory %s deleted' % (self.factory))
 
     # --------------------------------------------------------------------------------
     # state='present'
@@ -241,7 +263,9 @@ class CQOsgi(object):
 
         if self.osgimode in ('factory'):
             if self.factory_instances:
-                if not self.find_factory_match():
+                if self.find_factory_match():
+                    self.msg.append('factory %s present' % (self.factory))
+                else:
                     self.create_factory()
             else:
                 self.create_factory()
@@ -278,7 +302,14 @@ class CQOsgi(object):
     # state='absent'
     # --------------------------------------------------------------------------------
     def absent(self):
-        self.module.fail_json(msg='State "absent" is not supported yet, sorry')
+        if self.osgimode in ('factory'):
+            if self.factory_instances:
+                if self.find_factory_match():
+                    self.delete_factory()
+                else:
+                    self.msg.append('factory already absent')
+        else:
+            self.module.fail_json(msg='State "absent" is not supported yet, sorry')
 
     # --------------------------------------------------------------------------------
     # Update property
