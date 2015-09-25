@@ -111,6 +111,22 @@ options:
             - Protocol version
         required: false
         default: null      
+    batch_mode:
+        description:
+            - Batch mode
+        required: false
+        default: false
+        choices: [true, false]        
+    batch_wait_time:
+        description:
+            - batch wait time
+        required: false
+        default: null      
+    batch_max_size:
+        description:
+            - batch max size
+        required: false
+        default: null      
     admin_user:
         description:
             - AEM admin user account name
@@ -187,6 +203,15 @@ class AEMAgent(object):
         else:
             self.connection_close = 'false'
 
+        if self.module.params['batch_mode']:
+            self.batch_mode      = 'true'
+            self.batch_wait_time = self.module.params['batch_wait_time']
+            self.batch_max_size  = self.module.params['batch_max_size']
+        else:
+            self.batch_mode      = 'false'
+            self.batch_wait_time = ''
+            self.batch_max_size  = ''
+
         # handle empty triggers list
         if self.triggers and len(self.triggers) == 1 and self.triggers[0] == "":
             self.triggers = None
@@ -256,11 +281,17 @@ class AEMAgent(object):
             if self.transport_uri != self.info['jcr:content']['transportUri']:
                 update_required = True
                 self.msg.append("transport_uri updated from '%s' to '%s'" % (self.info['jcr:content']['transportUri'], self.transport_uri))
+
+            if not 'transportUser' in self.info['jcr:content']:
+                self.info['jcr:content']['transportUser'] = ''
+            if not self.transport_user:
+                self.transport_user = ""
             if self.transport_user != self.info['jcr:content']['transportUser']:
                 update_required = True
-                if not self.transport_user:
-                    self.transport_user = ""
+                user_changed = True
                 self.msg.append("transport_user updated from '%s' to '%s'" % (self.info['jcr:content']['transportUser'], self.transport_user))
+            else:
+                user_changed = False
 
             if self.triggers:
                 curr_triggers = []
@@ -326,8 +357,27 @@ class AEMAgent(object):
                         update_required = True
                         self.msg.append("protol HTTP headers updated from '%s' to '%s'" % (curr_headers, flush_headers))
 
+            if not 'queueBatchMode' in self.info['jcr:content']:
+                self.info['jcr:content']['queueBatchMode'] = ''
+            if self.batch_mode != self.info['jcr:content']['queueBatchMode']:
+                update_required = True
+                self.msg.append("batch mode changed from '%s' to '%s'" % (self.info['jcr:content']['queueBatchMode'], self.batch_mode))
+
+            if not 'queueBatchWaitTime' in self.info['jcr:content']:
+                self.info['jcr:content']['queueBatchWaitTime'] = ''
+            if self.batch_wait_time != self.info['jcr:content']['queueBatchWaitTime']:
+                update_required = True
+                self.msg.append("batch wait time changed from '%s' to '%s'" % (self.info['jcr:content']['queueBatchWaitTime'], self.batch_wait_time))
+
+            if not 'queueBatchMaxSize' in self.info['jcr:content']:
+                self.info['jcr:content']['queueBatchMaxSize'] = ''
+            if self.batch_max_size != self.info['jcr:content']['queueBatchMaxSize']:
+                update_required = True
+                self.msg.append("batch max size changed from '%s' to '%s'" % (self.info['jcr:content']['queueBatchMaxSize'], self.batch_max_size))
+
             if update_required:
-               self.transport_password = None
+               if not user_changed:
+                   self.transport_password = None
                self.define_agent()
             self.msg.append('agent updated')
         else:
@@ -394,6 +444,9 @@ class AEMAgent(object):
             ('jcr:content/userId', self.agent_user),
             ('jcr:content/protocolConnectTimeout', self.connect_timeout),
             ('jcr:content/protocolVersion', self.protocol_version),
+            ('jcr:content/queueBatchMode', self.batch_mode),
+            ('jcr:content/queueBatchWaitTime', self.batch_wait_time),
+            ('jcr:content/queueBatchMaxSize', self.batch_max_size),
             ]
         if self.transport_user:
             fields.append(('jcr:content/transportUser', self.transport_user))
@@ -530,6 +583,9 @@ def main():
             connection_close   = dict(default=False, type='bool'),
             connect_timeout    = dict(default=''),
             protocol_version   = dict(default=''),
+            batch_mode         = dict(default=False, type='bool'),
+            batch_wait_time    = dict(default=''),
+            batch_max_size     = dict(default='')
             ),
         supports_check_mode=True
         )
