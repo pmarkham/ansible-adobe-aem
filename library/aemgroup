@@ -93,18 +93,26 @@ class AEMGroup(object):
         self.host           = self.module.params['host']
         self.port           = self.module.params['port']
         self.version        = self.module.params['version']
+
         
         self.changed = False
         self.msg = []
         self.id_initial = self.id[0]
 
-        self.get_group_info()
+        if self.module.check_mode:
+            self.msg.append('Running in check mode')
 
-        if int(self.version.split('.')[0]) > 5:
+        self.aem61 = False
+        ver = self.version.split('.')
+        if int(ver[0]) >= 6:
             # aem6 must have all groups and all users in the 'everyone' group 
             if not "everyone" in self.groups:
                  # everyone group not listed, so add it
                  self.groups.append("everyone")
+            if int(ver[1]) >=1:
+                self.aem61 = True
+
+        self.get_group_info()
 
 
 
@@ -112,7 +120,19 @@ class AEMGroup(object):
     # Look up package info.
     # --------------------------------------------------------------------------------
     def get_group_info(self):
-        (status, output) = self.http_request('GET', '/home/groups/%s/%s.rw.json?props=*' % (self.id_initial, self.id))
+        if self.aem61:
+            (status, output) = self.http_request('GET', '/bin/querybuilder.json?path=/home/groups&1_property=rep:authorizableId&1_property.value=%s&p.limit=-1&p.hits=full' % self.id)
+            if status != 200:
+                self.module.fail_json(msg='Error searching for group. status=%s output=%s' % (status, output))
+            info = json.loads(output)
+            if len(info['hits']) == 0:
+                self.exists = False
+                return
+            self.path = info['hits'][0]['jcr:path']
+        else:
+            self.path = '/home/groups/%s/%s' % (self.id_initial, self.id)
+
+        (status, output) = self.http_request('GET', '%s.rw.json?props=*' % (self.path))
         if status == 200:
             self.exists = True
             info = json.loads(output)
@@ -122,6 +142,7 @@ class AEMGroup(object):
                 self.curr_groups.append(entry['authorizableId'])
         else:
             self.exists = False
+
 
     # --------------------------------------------------------------------------------
     # state='present'
@@ -171,7 +192,7 @@ class AEMGroup(object):
             if status != 201 or not self.exists:
                 self.module.fail_json(msg='failed to create group: %s - %s' % (status, output))
         self.changed = True
-        self.msg.append('group created')
+        self.msg.append("group '%s' created" % (self.id))
     
     # --------------------------------------------------------------------------------
     # Update name
@@ -179,11 +200,11 @@ class AEMGroup(object):
     def update_name(self):
         fields = [('profile/givenName', self.name)]
         if not self.module.check_mode:
-            (status, output) = self.http_request('POST', '/home/groups/%s/%s.rw.html' % (self.id_initial, self.id), fields)
+            (status, output) = self.http_request('POST', '%s.rw.html' % (self.path), fields)
             if status != 200:
                 self.module.fail_json(msg='failed to update name: %s - %s' % (status, output))
         self.changed = True
-        self.msg.append('name updated')
+        self.msg.append("name changed from '%s' to '%s'" % (self.curr_name, self.name))
 
     # --------------------------------------------------------------------------------
     # Update groups
@@ -193,11 +214,11 @@ class AEMGroup(object):
         if not self.module.check_mode:
             for group in self.groups:
                 fields.append(('membership', group))
-            (status, output) = self.http_request('POST', '/home/groups/%s/%s.rw.html' % (self.id_initial, self.id), fields)
+            (status, output) = self.http_request('POST', '%s.rw.html' % (self.path), fields)
             if status != 200:
                 self.module.fail_json(msg='failed to update groups: %s - %s' % (status, output))
         self.changed = True
-        self.msg.append('groups updated')
+        self.msg.append("groups updated from '%s' to '%s'" % (self.curr_groups, self.groups))
 
     # --------------------------------------------------------------------------------
     # Delete a group
@@ -205,11 +226,11 @@ class AEMGroup(object):
     def delete_group(self):
         fields = [('deleteAuthorizable', '')]
         if not self.module.check_mode:
-            (status, output) = self.http_request('POST', '/home/groups/%s/%s.rw.html' % (self.id_initial, self.id), fields)
+            (status, output) = self.http_request('POST', '%s.rw.html' % (self.path), fields)
             if status != 200:
                 self.module.fail_json(msg='failed to delete group: %s - %s' % (status, output))
         self.changed = True
-        self.msg.append('group deleted')
+        self.msg.append("group '%s' deleted" % (self.id))
 
     # --------------------------------------------------------------------------------
     # Issue http request.
@@ -234,11 +255,8 @@ class AEMGroup(object):
     # Return status and msg to Ansible.
     # --------------------------------------------------------------------------------
     def exit_status(self):
-        if self.changed:
-            msg = ','.join(self.msg)
-            self.module.exit_json(changed=True, msg=msg)
-        else:
-            self.module.exit_json(changed=False)
+        msg = ','.join(self.msg)
+        self.module.exit_json(changed=self.changed, msg=msg)
 
 
 # --------------------------------------------------------------------------------
@@ -263,6 +281,7 @@ def main():
     group = AEMGroup(module)
     
     state = module.params['state']
+
 
     if state == 'present':
         group.present()
