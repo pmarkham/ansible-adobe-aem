@@ -36,11 +36,16 @@ options:
         description:
             - The name of the package
         required: true
-        path:
+    path:
         description:
             - Path to the file. Either a directory name, in which case it's assumed the file name matches the package name,
               or a file name if the  package name doesn't match the file name.
-        required: true
+        required: false
+    url:
+        description:
+            - url to the file. This will be passed to curl to download the package to /tmp. The package will be deleted from /tmp
+              after it has been uploaded.
+        required: false
     state:
         description:
             - State of the package
@@ -131,6 +136,7 @@ class AEMPkg(object):
         self.name           = self.module.params['name']
         self.state          = self.module.params['state']
         self.path           = self.module.params['path']
+        self.url            = self.module.params['url']
         self.admin_user     = self.module.params['admin_user']
         self.admin_password = self.module.params['admin_password']
         self.host           = self.module.params['host']
@@ -218,18 +224,29 @@ class AEMPkg(object):
     #       http://code.activestate.com/recipes/578846-composing-a-postable-http-request-with-multipartfo/)
     # --------------------------------------------------------------------------------
     def upload_pkg(self):
-        if not self.path:
-            self.module.fail_json(msg='Missing required argument: path')
+        if not self.path and not self.url:
+            self.module.fail_json(msg='Missing required argument: path or url')
 
         start_time = time.time()
         while True:
-            file = self.path
-            if not os.path.isfile(file):
-                file = '%s/%s' % (self.path, self.name)
-            if not os.path.isfile(file):
-                self.module.fail_json(msg="upload_pkg: File '%s' doesn't exist" % file)
+            if self.url:
+                file = '/tmp/' + os.path.basename(self.url)
+                if not self.module.check_mode:
+                    cmd="%s -s -w '%%{http_code}' -o %s %s" % (self.curl_cmd, file, self.url)
+                    (rc, out, err) = self.module.run_command(cmd)
+                    if rc != 0 or out != '200':
+                        if os.path.isfile(file):
+                            os.remove(file)
+                        self.module.fail_json(msg='upload_pkg: failed to retrieve package: rc=%s stdout=%s stderr=%s' % (rc, out, err))
+                    self.msg.append('package retrieved')
+            else:
+                file = self.path
+                if not os.path.isfile(file):
+                    file = '%s/%s' % (self.path, self.name)
+                if not os.path.isfile(file):
+                    self.module.fail_json(msg="upload_pkg: File '%s' doesn't exist" % file)
             if not self.module.check_mode:
-                cmd="%s -u %s:%s -v -q -F package='@%s' http://%s:%s/crx/packmgr/service/.json/?cmd=upload" % (self.curl_cmd, self.admin_user, self.admin_password, file, self.host, self.port)
+                cmd="%s -u %s:%s -v -q -F package='@%s' http://%s:%d/crx/packmgr/service/.json/?cmd=upload" % (self.curl_cmd, self.admin_user, self.admin_password, file, self.host, self.port)
                 (rc, out, err) = self.module.run_command(cmd)
                 now = time.time()
                 if rc != 0:
@@ -246,6 +263,8 @@ class AEMPkg(object):
                     else:
                         time.sleep(30)
                         continue
+            if self.url and os.path.isfile(file):
+                os.remove(file)
             break
 
         self.changed = True
@@ -352,7 +371,7 @@ class AEMPkg(object):
             headers['Content-type'] = 'application/x-www-form-urlencoded'
         else:
             data = None
-        conn = httplib.HTTPConnection(self.host + ':' + self.port)
+        conn = httplib.HTTPConnection(self.host + ':' + str(self.port))
         try:
             conn.request(method, url, data, headers)
         except:
@@ -381,13 +400,14 @@ def main():
             name           = dict(required=True),
             state          = dict(required=True, choices=['present', 'absent', 'uploaded', 'uninstalled']),
             path           = dict(default=None),
+            url            = dict(default=None),
             admin_user     = dict(required=True),
             admin_password = dict(required=True, no_log=True),
             host           = dict(required=True),
-            port           = dict(required=True),
-            timeout        = dict(default=600),
+            port           = dict(required=True, type='int'),
+            timeout        = dict(default=600, type='int'),
             force          = dict(default='no', choices=['yes', 'no']),
-            wait           = dict(default=0),
+            wait           = dict(default=0, type='int'),
             ),
         supports_check_mode=True
         )

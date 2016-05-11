@@ -76,7 +76,7 @@ options:
 EXAMPLES='''
 # Set/modify a string type setting. Use true or false as value
 # to set boolean properties.
-  cqosgi: id=com.some.osgi.id
+  aemosgi: id=com.some.osgi.id
     property=some.string.type.property
     value="somevalue"
     osgimode=string
@@ -87,7 +87,7 @@ EXAMPLES='''
     port=some_listen_port
 
 # Create factory type setting
-  cqosgi: id=com.some.osgi.factory.id
+  aemosgi: id=com.some.osgi.factory.id
     property=factory
     value="{ prop1: value1, prop2: value2, prop3: value3 }"
     osgimode=factory
@@ -97,9 +97,24 @@ EXAMPLES='''
     host=some_host
     port=some_listen_port
 
+# Create factory logger configuration
+  aemosgi: id=com.some.osgi.factory.id
+    property=factory
+    value="{ 'org.apache.sling.commons.log.level': 'debug',
+             'org.apache.sling.commons.log.file': 'logs/standby.log',
+             'org.apache.sling.commons.log.pattern': '{0,date,dd.MM.yyyy HH:mm:ss.SSS} *{4}* [{2}] {3} {5}',
+             'org.apache.sling.commons.log.names': ['org.apache.jackrabbit.oak.plugins.segment.standby.store.CommunicationObserver'],
+           }"
+    osgimode=factory
+    state=present
+    admin_user=some_admin_user
+    admin_password=some_admin_pass
+    host=some_host
+    port=some_listen_port
+
 # Set/modify an array type setting - contents of the property will
 # be overwritten by array provided in value
-  cqosgi: id=com.some.osgi.id
+  aemosgi: id=com.some.osgi.id
     property=some.array.type.property
     value="[ value1, value2 ]"
     osgimode=array
@@ -112,7 +127,7 @@ EXAMPLES='''
 # Set/modify an array type setting - contents of the property will
 # be appended to  array provided in value, idempotently (only once,
 # no repeat appending will take place)
-  cqosgi: id=com.some.osgi.id
+  aemosgi: id=com.some.osgi.id
     property=some.arraytoappendto.type.property
     value="[ value1, value2 ]"
     osgimode=arrayappend
@@ -347,7 +362,7 @@ class CQOsgi(object):
             headers['Content-type'] = 'application/x-www-form-urlencoded'
         else:
             data = None
-        conn = httplib.HTTPConnection(self.host + ':' + self.port)
+        conn = httplib.HTTPConnection(self.host + ':' + str(self.port))
         try:
             conn.request(method, url, data, headers)
         except Exception as e:
@@ -358,7 +373,7 @@ class CQOsgi(object):
 
     def http_request2(self, method, url, fields = None):
         headers = {}
-        uri = 'http://' + self.host + ':' + self.port + url
+        uri = 'http://' + self.host + ':' + str(self.port) + url
         if fields:
             data = urllib.urlencode(fields)
             headers['Content-type'] = 'application/x-www-form-urlencoded'
@@ -395,12 +410,12 @@ def main():
             id             = dict(required=True),
             state          = dict(required=True, choices=['present', 'absent']),
             property       = dict(default=None),
-            value          = dict(default=None),
+            value          = dict(default=None, type='str'),
             osgimode       = dict(default=None),
             admin_user     = dict(required=True),
             admin_password = dict(required=True),
             host           = dict(required=True),
-            port           = dict(required=True),
+            port           = dict(required=True, type='int'),
             ),
         supports_check_mode=True
         )

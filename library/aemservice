@@ -135,9 +135,12 @@ class AEMService(object):
     def wait_for_active_instance(self):
         start_time = time.time()
         while True:
-            url = 'http://%s:%s%s' % (self.host, self.port, self.uri)
-            (resp, output) = self.http_request('GET', url)
-            result = re.search(self.pattern, output)
+            url = 'http://%s:%d%s' % (self.host, self.port, self.uri)
+            try:
+                (resp, output) = self.http_request('GET', url)
+                result = re.search(self.pattern, output)
+            except:
+                result = None
             if result:
                 if self.verbose:
                     self.msg.append('instance is active')
@@ -225,7 +228,7 @@ class AEMService(object):
             headers = {}
 
         data = None
-        conn = httplib.HTTPConnection(self.host + ':' + self.port)
+        conn = httplib.HTTPConnection(self.host + ':' + str(self.port))
         try:
                 conn.request(method, url, data, headers)
         except Exception as e:
@@ -254,10 +257,10 @@ def main():
             cmd            = dict(default=None),
             verbose        = dict(default=False, type='bool'),
             host           = dict(required=True),
-            port           = dict(required=True),
+            port           = dict(required=True, type='int'),
             admin_user     = dict(required=False),
             admin_password = dict(required=False, no_log=True),
-            timeout        = dict(default=600),
+            timeout        = dict(default=600, type='int'),
             authenticate   = dict(default=False, type='bool'),
             ),
         supports_check_mode=True

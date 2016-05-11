@@ -152,7 +152,7 @@ class AEMBundle(object):
             headers['Content-type'] = 'application/x-www-form-urlencoded'
         else:
             data = None
-        conn = httplib.HTTPConnection(self.host + ':' + self.port)
+        conn = httplib.HTTPConnection(self.host + ':' + str(self.port))
         try:
             conn.request(method, url, data, headers)
         except Exception as e:
@@ -183,7 +183,7 @@ def main():
             admin_user         = dict(required=True),
             admin_password     = dict(required=True, no_log=True),
             host               = dict(required=True),
-            port               = dict(required=True),
+            port               = dict(required=True, type='int'),
             ),
         supports_check_mode=True
         )
